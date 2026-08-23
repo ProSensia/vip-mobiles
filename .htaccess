@@ -4,6 +4,12 @@ PassengerNodejs "/home/prosdfwo/nodevenv/vipmobile.prosensia.pk/frontend/20/bin/
 PassengerAppType node
 PassengerStartupFile server.js
 
+# Shared hosting kills idle app processes after a period of inactivity; the
+# next request then pays a multi-second cold-start penalty (spawn Node,
+# re-require every module) — which shows up as "sometimes fast, sometimes
+# the page just hangs." Keep at least one process warm at all times.
+PassengerMinInstances 1
+
 # The domain docroot is the whole repo checkout, so Apache/LiteSpeed will
 # happily serve these folders/files as plain static content — bypassing
 # Passenger entirely — for anyone who requests them directly. backend/ and

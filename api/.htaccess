@@ -3,3 +3,8 @@ PassengerBaseURI "/api"
 PassengerNodejs "/home/prosdfwo/nodevenv/vipmobile.prosensia.pk/backend/20/bin/node"
 PassengerAppType node
 PassengerStartupFile dist/index.js
+
+# Same reasoning as the frontend's .htaccess — keep the API process warm so
+# admin actions (product edit, list pages, etc.) don't intermittently pay a
+# cold-start penalty on the very request that reads/writes the database.
+PassengerMinInstances 1
