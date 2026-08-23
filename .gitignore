@@ -4,10 +4,10 @@ node_modules/
 .pnp.js
 
 # Build outputs
-dist/
-build/
-.next/
-out/
+# dist/
+# build/
+# .next/
+# out/
 
 # Env files — anything starting with .env is a real-secrets file (.env,
 # .env.local, .env.production, .env.development, etc.) except .env.example
