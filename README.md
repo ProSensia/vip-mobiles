@@ -24,17 +24,16 @@ Deploying to Namecheap shared/business hosting (cPanel)? See
 ## Project Structure
 
 ```
-apps/
-  web/    Next.js app — storefront, /admin CMS, /portal (sales staff)
-  api/    Express API — all business logic, auth, image processing, DB access
+frontend/   Next.js app — storefront, /admin CMS, /portal (sales staff)
+backend/    Express API — all business logic, auth, image processing, DB access
 packages/
-  db/     Prisma schema, migrations, seed & reset scripts
-  shared/ Code shared between web and api (permissions, brand tokens, utils)
-Logo/     Original brand asset
+  db/       Prisma schema, migrations, seed & reset scripts
+  shared/   Code shared between frontend and backend (permissions, brand tokens, utils)
+Logo/       Original brand asset
 ```
 
 The web app and API are separate processes. In development, Next.js proxies
-`/api/*` and `/uploads/*` to the API (see `apps/web/next.config.mjs`) so
+`/api/*` and `/uploads/*` to the API (see `frontend/next.config.mjs`) so
 cookies stay same-origin. In production, put them behind the same reverse
 proxy (nginx/Caddy) using the same rewrite rules, or run them on subdomains
 with `COOKIE_DOMAIN` set accordingly.
@@ -55,9 +54,9 @@ npm install
 
 # 2. Configure environment files
 cp packages/db/.env.example packages/db/.env
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env.local
-# Edit packages/db/.env and apps/api/.env with your real DATABASE_URL and a
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+# Edit packages/db/.env and backend/.env with your real DATABASE_URL and a
 # strong SUPER_ADMIN_PASSWORD / JWT secrets.
 
 # 3. Create the database schema
@@ -110,7 +109,7 @@ Equivalent CLI command: `npm run db:reset`.
 | Sales Manager | Sales recording + full analytics, branches, buy requests |
 | Sales Staff | Assigned products, stock updates, recording their own sales |
 
-Permissions are enforced on the API (`apps/api/src/middleware/auth.ts`,
+Permissions are enforced on the API (`backend/src/middleware/auth.ts`,
 `packages/shared/src/permissions.ts`) — the frontend only uses them to hide
 UI, never as the source of truth. Super Admin can grant/revoke individual
 permissions per user from **Admin → Staff & Roles**.
@@ -147,14 +146,14 @@ shared/business hosting specifically, use
 [docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md) instead, which covers
 the Node.js Selector/Passenger-specific setup these generic notes don't.
 
-- Run `apps/api` as a persistent Node process (PM2/systemd/Docker) — it
+- Run `backend` as a persistent Node process (PM2/systemd/Docker) — it
   serves `/uploads` directly and needs a writable `UPLOAD_DIR`.
-- Run `apps/web` with `npm run start --workspace=apps/web` (a custom
+- Run `frontend` with `npm run start --workspace=frontend` (a custom
   `server.js`, not the `next start` CLI — needed for hosts that expect a
   plain Node entry point) behind the same domain/proxy as the API, using the
   rewrite rules in `next.config.mjs` (or equivalent reverse-proxy rules) so
   `/api/*` and `/uploads/*` stay same-origin for cookies. `next build` also
-  produces a fully self-contained `apps/web/.next/standalone/apps/web/`
+  produces a fully self-contained `frontend/.next/standalone/frontend/`
   folder (own `server.js`, own `node_modules`, own copy of `public/` and
   static assets) if you'd rather deploy the frontend as one standalone
   folder instead of the whole monorepo.
@@ -163,7 +162,7 @@ the Node.js Selector/Passenger-specific setup these generic notes don't.
 - Point `DATABASE_URL` at your production MySQL instance and run
   `npm run db:migrate:deploy` (not `db:migrate`, which is for dev).
 - For image storage beyond a single server's disk, swap the driver in
-  `apps/api/src/lib/storage.ts` (interface is already storage-backend
+  `backend/src/lib/storage.ts` (interface is already storage-backend
   agnostic) for S3/R2/GCS.
 
 ## Security Notes

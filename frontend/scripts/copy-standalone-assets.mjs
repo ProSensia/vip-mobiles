@@ -2,14 +2,14 @@
 // into .next/standalone — it deliberately does NOT copy `public/` or
 // `.next/static/` (that's documented upstream behavior, not an oversight),
 // so the standalone folder isn't actually servable until this runs. This
-// makes `apps/web/.next/standalone/apps/web/` a genuinely complete, directly
+// makes `frontend/.next/standalone/frontend/` a genuinely complete, directly
 // runnable app folder: `node server.js` and nothing else.
 import { cpSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const webRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const standaloneAppRoot = path.join(webRoot, ".next", "standalone", "apps", "web");
+const standaloneAppRoot = path.join(webRoot, ".next", "standalone", "frontend");
 
 if (!existsSync(standaloneAppRoot)) {
   console.error(`Standalone output not found at ${standaloneAppRoot} — did "next build" run with output: "standalone"?`);

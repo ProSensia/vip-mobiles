@@ -1,6 +1,6 @@
 // Brand tokens derived from the VIP Mobiles crest logo (black + gold, premium/luxury).
-// Single source of truth: Tailwind theme (apps/web) and the social-creative
-// canvas renderer (apps/api) both read from this file so exported posts and
+// Single source of truth: Tailwind theme (frontend) and the social-creative
+// canvas renderer (backend) both read from this file so exported posts and
 // the live site never drift apart.
 
 export const BRAND = {

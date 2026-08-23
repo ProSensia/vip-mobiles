@@ -8,7 +8,7 @@ import path from "path";
 import { nanoid } from "nanoid";
 import { BRAND_COLORS } from "@vip/shared";
 
-const API_UPLOAD_ROOT = path.resolve(__dirname, "../../../../apps/api/uploads");
+const API_UPLOAD_ROOT = path.resolve(__dirname, "../../../../backend/uploads");
 
 function escapeXml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

@@ -29,8 +29,8 @@ yarn-error.log*
 packages/db/generated/
 
 # Uploads (local dev media storage)
-apps/api/uploads/
-apps/api/uploads-tmp/
+backend/uploads/
+backend/uploads-tmp/
 
 # OS / editor
 .DS_Store

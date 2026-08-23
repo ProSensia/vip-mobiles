@@ -13,7 +13,7 @@ plan provides.
 ## 0. What you'll end up with
 
 - One MySQL database (cPanel → MySQL Databases)
-- Two cPanel "Node.js Apps": one running `apps/api`, one running `apps/web`
+- Two cPanel "Node.js Apps": one running `backend`, one running `frontend`
 - Both apps pointed at **the same repo checkout** (Application Root = the
   repo root) — npm workspaces need to be installed from the root, not from
   inside a subfolder, so this isn't optional
@@ -69,7 +69,7 @@ cPanel → **Setup Node.js App** → **Create Application**:
 - **Application root**: `repositories/vip-mobiles` (the repo root from step 1)
 - **Application URL**: a subdomain, e.g. `api.yourdomain.com` (create the
   subdomain first in cPanel → Domains, if it doesn't exist)
-- **Application startup file**: `apps/api/dist/index.js`
+- **Application startup file**: `backend/dist/index.js`
 
 Click **Create**. cPanel shows a command to enter the app's virtual
 environment, e.g.:
@@ -84,11 +84,11 @@ Run that (via cPanel's **Terminal** or SSH), then:
 npm install                              # installs all workspaces
 npm run build --workspace=packages/shared
 npm run generate --workspace=packages/db
-npm run build --workspace=apps/api
+npm run build --workspace=backend
 ```
 
 Back in **Setup Node.js App** → your API app → **Environment Variables**,
-add (values from `apps/api/.env.example`):
+add (values from `backend/.env.example`):
 
 | Key | Value |
 |---|---|
@@ -122,27 +122,41 @@ Click **Restart** on the API app.
 ## 4. Set up the web app
 
 The frontend builds to a **self-contained folder** (`next build`'s
-`output: "standalone"` mode) — `apps/web/.next/standalone/apps/web/` ends up
+`output: "standalone"` mode) — `frontend/.next/standalone/frontend/` ends up
 with its own `server.js` and its own `node_modules`, so this one app doesn't
 need a workspace-aware `npm install` in its Application Root the way the API
-does. That folder is what you point cPanel at directly.
+does.
 
 First build it. From the **API app's** virtual environment (or any shell
 with the repo's `npm install` already done, per step 3) run:
 
 ```bash
 cd ~/repositories/vip-mobiles
-npm run build --workspace=apps/web
+npm run build --workspace=frontend
 ```
 
-This produces `apps/web/.next/standalone/apps/web/` — a complete, directly
+This produces `frontend/.next/standalone/frontend/` — a complete, directly
 runnable copy of the frontend (the build script copies `public/` and
 `.next/static/` into it automatically, since Next doesn't do that on its
 own).
 
+**Don't point cPanel at that folder directly** — cPanel refuses to create a
+Node.js App whose Application Root sits inside another app's root ("The
+application cannot be located inside of already existing one"), and this
+folder is nested under the API app's root. Copy it out to a sibling
+directory instead:
+
+```bash
+rm -rf ~/vip-web
+cp -r frontend/.next/standalone/frontend ~/vip-web
+```
+
+Re-run those two lines after every future frontend rebuild — it's a stale
+copy otherwise.
+
 Now, **Setup Node.js App** → **Create Application**:
 
-- **Application root**: `repositories/vip-mobiles/apps/web/.next/standalone/apps/web`
+- **Application root**: `vip-web`
 - **Application URL**: your main domain, e.g. `yourdomain.com`
 - **Application startup file**: `server.js`
 
@@ -162,7 +176,7 @@ load, and `/admin`/`/portal` should reach the login page.
 
 If you'd rather not rebuild after every deploy, or the standalone path feels
 fragile on your account, you can instead point this app's Application Root
-at the repo root (same as the API) with startup file `apps/web/server.js` —
+at the repo root (same as the API) with startup file `frontend/server.js` —
 a plain custom-server wrapper that also works, at the cost of running from
 the full (larger) monorepo `node_modules` instead of a pruned folder.
 
@@ -174,7 +188,8 @@ the full (larger) monorepo `node_modules` instead of a pruned folder.
 2. cPanel → Git Version Control → your repo → **Update from Remote** → **Deploy HEAD Commit**.
 3. From the virtual environment(s): re-run whichever of `npm install`,
    `npm run build --workspace=...`, or `npm run migrate:deploy --workspace=packages/db`
-   are relevant to what changed.
+   are relevant to what changed. If the frontend changed, also re-copy it:
+   `rm -rf ~/vip-web && cp -r frontend/.next/standalone/frontend ~/vip-web`.
 4. Click **Restart** on whichever app(s) changed (Setup Node.js App page).
 
 ## 6. Before going live
@@ -195,9 +210,9 @@ See the main [README](../README.md) for what that does and preserves.
   using the non-standalone alternative): `npm install` was run somewhere
   other than the repo root, so npm workspaces didn't link it — re-run
   `npm install` from `repositories/vip-mobiles` (Application Root), not from
-  inside `apps/api` or `apps/web`.
+  inside `backend` or `frontend`.
 - **Web app serves stale content after a redeploy**: `next build` rewrites
-  `apps/web/.next/standalone/apps/web/` from scratch each time, so re-running
+  `frontend/.next/standalone/frontend/` from scratch each time, so re-running
   the build then clicking **Restart** (in that order) on the web app is
   required — a restart alone won't pick up a build you haven't re-run yet.
 - **Images not showing**: confirm `UPLOAD_DIR` for the API app resolves to a
