@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, KeyRound } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Card, CardHeader, CardBody } from "@/components/ui/Card";
 import { Input, FormField } from "@/components/ui/Input";
@@ -10,6 +10,57 @@ import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/admin/ImageUploader";
 import { useFetch } from "@/lib/useFetch";
 import { clientApi, ClientApiError } from "@/lib/clientApi";
+
+function ChangePasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("New password and confirmation don't match");
+      return;
+    }
+    setSaving(true);
+    try {
+      await clientApi.post("/auth/change-password", { currentPassword, newPassword });
+      toast.success("Password changed");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast.error(err instanceof ClientApiError ? err.message : "Could not change password");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Change Password" subtitle="Update the password for your own account." />
+      <CardBody>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Current Password">
+            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required autoComplete="current-password" />
+          </FormField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="New Password" hint="At least 8 characters, with a letter and a number.">
+              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required autoComplete="new-password" />
+            </FormField>
+            <FormField label="Confirm New Password">
+              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required autoComplete="new-password" />
+            </FormField>
+          </div>
+          <Button type="submit" loading={saving}>
+            <KeyRound className="h-4 w-4" /> Update Password
+          </Button>
+        </form>
+      </CardBody>
+    </Card>
+  );
+}
 
 export default function SettingsPage() {
   const { data, loading } = useFetch<{ settings: any }>("/settings");
@@ -94,6 +145,8 @@ export default function SettingsPage() {
           <FormField label="Default Meta Description"><Input value={form.seoDefaults?.metaDescription ?? ""} onChange={(e) => set("seoDefaults.metaDescription", e.target.value)} /></FormField>
         </CardBody>
       </Card>
+
+      <ChangePasswordCard />
     </div>
   );
 }

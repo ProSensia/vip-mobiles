@@ -31,7 +31,7 @@ const TOGGLES = [
 
 function SocialGeneratorInner() {
   const searchParams = useSearchParams();
-  const { data: productsData } = useFetch<{ items: any[] }>("/products?limit=100&status=AVAILABLE");
+  const { data: productsData } = useFetch<{ items: any[] }>("/products?limit=60&status=AVAILABLE");
   const { data: gradientsData } = useFetch<{ gradients: any[] }>("/social/gradients");
 
   const [productId, setProductId] = useState(searchParams.get("productId") ?? "");
