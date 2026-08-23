@@ -1,7 +1,33 @@
 import sharp, { type Metadata } from "sharp";
+import convertHeic from "heic-convert";
 import { nanoid } from "nanoid";
 import { storage } from "../lib/storage";
 import { ApiError } from "../middleware/errorHandler";
+
+// The sharp/libvips build available here can only decode the AVIF flavor of
+// the ISO-BMFF ("ftyp") container, not real HEIC/HEIF (the default format
+// for iPhone camera photos) — that needs libheif, which isn't in sharp's
+// prebuilt binaries. Detect it by its ftyp brand and pre-convert to JPEG
+// with a portable (WASM, no native build step) decoder before handing the
+// buffer to sharp, so phone-camera photos work without the uploader having
+// to know to export as JPEG first.
+const HEIC_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]);
+
+function isHeic(buffer: Buffer): boolean {
+  if (buffer.length < 12) return false;
+  if (buffer.toString("ascii", 4, 8) !== "ftyp") return false;
+  return HEIC_BRANDS.has(buffer.toString("ascii", 8, 12).toLowerCase());
+}
+
+async function normalizeInput(buffer: Buffer): Promise<Buffer> {
+  if (!isHeic(buffer)) return buffer;
+  try {
+    const jpeg = await convertHeic({ buffer, format: "JPEG", quality: 0.92 });
+    return Buffer.from(jpeg);
+  } catch {
+    throw new ApiError(400, "Could not read this HEIC/HEIF photo — please export it as JPEG and try again");
+  }
+}
 
 export interface ProcessedImageSet {
   id: string;
@@ -31,6 +57,7 @@ export async function processProductImage(
   buffer: Buffer,
   folder: string
 ): Promise<ProcessedImageSet> {
+  buffer = await normalizeInput(buffer);
   let metadata: Metadata;
   try {
     metadata = await sharp(buffer).metadata();
@@ -97,6 +124,7 @@ export async function processGenericImage(
   folder: string,
   maxWidth = 1600
 ): Promise<{ url: string; width: number; height: number }> {
+  buffer = await normalizeInput(buffer);
   let metadata: Metadata;
   try {
     metadata = await sharp(buffer).metadata();

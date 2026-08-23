@@ -78,12 +78,12 @@ export function ImagesManager({ productId, images, onChange }: { productId: stri
       >
         {uploading ? <Loader2 className="h-8 w-8 animate-spin text-gold-400" /> : <Upload className="h-8 w-8 text-muted" />}
         <p className="text-sm text-cream">{uploading ? "Uploading & optimizing..." : "Drag & drop images, or click to browse"}</p>
-        <p className="text-xs text-muted">JPEG, PNG or WebP — automatically converted to WebP/AVIF</p>
+        <p className="text-xs text-muted">JPEG, PNG, WebP or HEIC (iPhone photos) — automatically converted to WebP/AVIF</p>
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
           className="hidden"
           onChange={(e) => e.target.files && uploadFiles(e.target.files)}
         />

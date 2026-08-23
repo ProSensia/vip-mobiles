@@ -6,9 +6,36 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.processProductImage = processProductImage;
 exports.processGenericImage = processGenericImage;
 const sharp_1 = __importDefault(require("sharp"));
+const heic_convert_1 = __importDefault(require("heic-convert"));
 const nanoid_1 = require("nanoid");
 const storage_1 = require("../lib/storage");
 const errorHandler_1 = require("../middleware/errorHandler");
+// The sharp/libvips build available here can only decode the AVIF flavor of
+// the ISO-BMFF ("ftyp") container, not real HEIC/HEIF (the default format
+// for iPhone camera photos) — that needs libheif, which isn't in sharp's
+// prebuilt binaries. Detect it by its ftyp brand and pre-convert to JPEG
+// with a portable (WASM, no native build step) decoder before handing the
+// buffer to sharp, so phone-camera photos work without the uploader having
+// to know to export as JPEG first.
+const HEIC_BRANDS = new Set(["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"]);
+function isHeic(buffer) {
+    if (buffer.length < 12)
+        return false;
+    if (buffer.toString("ascii", 4, 8) !== "ftyp")
+        return false;
+    return HEIC_BRANDS.has(buffer.toString("ascii", 8, 12).toLowerCase());
+}
+async function normalizeInput(buffer) {
+    if (!isHeic(buffer))
+        return buffer;
+    try {
+        const jpeg = await (0, heic_convert_1.default)({ buffer, format: "JPEG", quality: 0.92 });
+        return Buffer.from(jpeg);
+    }
+    catch {
+        throw new errorHandler_1.ApiError(400, "Could not read this HEIC/HEIF photo — please export it as JPEG and try again");
+    }
+}
 const SIZES = {
     large: 1600, // main gallery / product page
     medium: 800, // catalog cards
@@ -22,6 +49,7 @@ const AVIF_QUALITY = 60; // AVIF achieves similar visual quality at a lower qual
  * several responsive widths, all under one content-addressed folder.
  */
 async function processProductImage(buffer, folder) {
+    buffer = await normalizeInput(buffer);
     let metadata;
     try {
         metadata = await (0, sharp_1.default)(buffer).metadata();
@@ -78,6 +106,7 @@ async function processProductImage(buffer, folder) {
 }
 /** Generic single-rendition processor for non-product images (banners, logos, staff photos, branch images). */
 async function processGenericImage(buffer, folder, maxWidth = 1600) {
+    buffer = await normalizeInput(buffer);
     let metadata;
     try {
         metadata = await (0, sharp_1.default)(buffer).metadata();
