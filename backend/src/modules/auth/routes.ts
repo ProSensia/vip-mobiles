@@ -15,7 +15,7 @@ import {
 } from "../../utils/jwt";
 import { sendMail } from "../../lib/mailer";
 import { recordAudit } from "../../utils/audit";
-import { effectivePermissions } from "@vip/shared";
+import { effectivePermissions } from "../../shared";
 import { env, isProd } from "../../env";
 
 const router = Router();

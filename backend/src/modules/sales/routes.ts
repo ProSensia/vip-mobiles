@@ -5,7 +5,7 @@ import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { validateBody } from "../../middleware/validate";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import { recordAudit } from "../../utils/audit";
-import { hasPermission, PERMISSIONS } from "@vip/shared";
+import { hasPermission, PERMISSIONS } from "../../shared";
 
 const router = Router();
 router.use(authenticate);

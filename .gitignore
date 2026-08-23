@@ -4,10 +4,19 @@ node_modules/
 .pnp.js
 
 # Build outputs
-# dist/
-# build/
-# .next/
-# out/
+#
+# backend/dist is intentionally NOT ignored — it's committed on purpose so
+# the server can `git pull` an already-built backend and skip `npm run
+# build` entirely (tsc output has no absolute paths baked in, so it's safe
+# to build anywhere and run anywhere).
+#
+# frontend/.next IS still ignored — Next's build output bakes in absolute
+# filesystem paths (outputFileTracingRoot, manifests, etc.), so a copy built
+# on one machine breaks when deployed to another. Build it fresh with
+# `npm run build` on whichever machine will actually run it.
+build/
+out/
+.next/
 
 # Env files — anything starting with .env is a real-secrets file (.env,
 # .env.local, .env.production, .env.development, etc.) except .env.example

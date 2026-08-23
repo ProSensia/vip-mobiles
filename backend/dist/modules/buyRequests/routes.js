@@ -8,7 +8,7 @@ const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
 const rateLimit_1 = require("../../middleware/rateLimit");
 const audit_1 = require("../../utils/audit");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 const router = (0, express_1.Router)();
 const createSchema = zod_1.z.object({
     productId: zod_1.z.string().min(1),

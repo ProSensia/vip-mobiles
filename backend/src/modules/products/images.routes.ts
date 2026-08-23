@@ -7,7 +7,7 @@ import { authenticate, requirePermission } from "../../middleware/auth";
 import { imageUpload } from "../../middleware/upload";
 import { processProductImage } from "../../utils/image";
 import { recordAudit } from "../../utils/audit";
-import { PERMISSIONS } from "@vip/shared";
+import { PERMISSIONS } from "../../shared";
 
 const router = Router({ mergeParams: true });
 

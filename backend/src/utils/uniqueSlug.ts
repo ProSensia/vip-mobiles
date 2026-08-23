@@ -1,4 +1,4 @@
-import { slugify } from "@vip/shared";
+import { slugify } from "../shared";
 import { prisma } from "../lib/prisma";
 
 /** Generates a unique product slug, appending -2, -3, ... on collision. */

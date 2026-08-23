@@ -6,7 +6,7 @@ import { validateBody } from "../../middleware/validate";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import { publicFormLimiter } from "../../middleware/rateLimit";
 import { recordAudit } from "../../utils/audit";
-import { PERMISSIONS } from "@vip/shared";
+import { PERMISSIONS } from "../../shared";
 
 const router = Router({ mergeParams: true });
 

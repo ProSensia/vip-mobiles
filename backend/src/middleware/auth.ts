@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../utils/jwt";
-import { hasPermission, type Permission } from "@vip/shared";
+import { hasPermission, type Permission } from "../shared";
 import { ApiError } from "./errorHandler";
 
 /** Populates req.user from the access token cookie. Rejects if missing/invalid. */

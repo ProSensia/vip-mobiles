@@ -6,7 +6,7 @@ exports.requirePermission = requirePermission;
 exports.requireAnyPermission = requireAnyPermission;
 exports.requireSuperAdmin = requireSuperAdmin;
 const jwt_1 = require("../utils/jwt");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../shared");
 const errorHandler_1 = require("./errorHandler");
 /** Populates req.user from the access token cookie. Rejects if missing/invalid. */
 function authenticate(req, _res, next) {

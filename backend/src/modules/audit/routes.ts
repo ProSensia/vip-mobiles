@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { authenticate, requirePermission } from "../../middleware/auth";
-import { PERMISSIONS } from "@vip/shared";
+import { PERMISSIONS } from "../../shared";
 
 const router = Router();
 

@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { env } from "../env";
-import type { RoleName, PermissionOverrides } from "@vip/shared";
+import type { RoleName, PermissionOverrides } from "../shared";
 
 export interface AccessTokenPayload {
   sub: string; // userId

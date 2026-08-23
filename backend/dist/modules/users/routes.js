@@ -14,7 +14,7 @@ const password_1 = require("../../utils/password");
 const jwt_1 = require("../../utils/jwt");
 const mailer_1 = require("../../lib/mailer");
 const audit_1 = require("../../utils/audit");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 const env_1 = require("../../env");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);

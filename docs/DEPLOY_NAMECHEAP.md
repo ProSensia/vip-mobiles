@@ -6,17 +6,25 @@ CloudLinux's Node.js Selector + Phusion Passenger). You pick a Node version
 in the UI and cPanel handles installing and running it — you never install
 Node by hand.
 
-This app needs **two** long-running Node processes (the API and the web
-frontend) plus a **MySQL database**, all of which a Namecheap shared/business
-plan provides.
+**`backend/` and `frontend/` are fully independent projects.** Each has its
+own `package.json` with real, registry-published dependencies — no npm
+workspaces, no monorepo-root install required. You `cd` into one and run
+`npm install` exactly like any ordinary Node project. `packages/shared` and
+`packages/db` still exist in the repo as the source of truth for a few small
+files (see "Keeping things in sync" below), but neither app depends on them
+at install time anymore.
 
 ## 0. What you'll end up with
 
 - One MySQL database (cPanel → MySQL Databases)
-- Two cPanel "Node.js Apps": one running `backend`, one running `frontend`
-- Both apps pointed at **the same repo checkout** (Application Root = the
-  repo root) — npm workspaces need to be installed from the root, not from
-  inside a subfolder, so this isn't optional
+- Two cPanel "Node.js Apps", each pointed at its own **sibling** subfolder —
+  neither is nested inside the other's Application Root, which is what
+  cPanel requires:
+
+  | | App Root Directory | Startup file |
+  |---|---|---|
+  | Backend | `vipmobile.prosensia.pk/backend` | `dist/index.js` |
+  | Frontend | `vipmobile.prosensia.pk/frontend` | `server.js` |
 
 ## 1. Get the code onto the server
 
@@ -26,69 +34,59 @@ plan provides.
 2. Clone URL: `https://github.com/ProSensia/vip-mobiles.git` (use a
    [GitHub personal access token](https://github.com/settings/tokens) as the
    password if prompted, since the repo is private).
-3. Repository Path: something like `repositories/vip-mobiles` (anywhere
-   under your home directory — it does **not** need to be inside
-   `public_html`, since Passenger serves the app directly, not static files).
+3. Repository Path: `vipmobile.prosensia.pk` (your account's home-relative
+   folder for this domain — it does **not** need to be inside `public_html`,
+   since Passenger serves each app directly, not static files).
 4. After creating it, whenever you push new commits to GitHub: open the repo
    in cPanel → **Pull or Deploy** tab → **Update from Remote**, then
-   **Deploy HEAD Commit** (this runs `.cpanel.yml`, which just confirms the
-   deploy — see that file's comments for why it doesn't auto-run
-   install/build).
+   **Deploy HEAD Commit** (runs `.cpanel.yml`, which just confirms the pull —
+   see that file's comments for why it doesn't auto-run install/build).
 
 **Option B — plain SSH**
 
 ```bash
-ssh yourusername@yourdomain.com
-git clone https://github.com/ProSensia/vip-mobiles.git repositories/vip-mobiles
+ssh prosdfwo@premium281.web-hosting.com
+git clone https://github.com/ProSensia/vip-mobiles.git vipmobile.prosensia.pk
 ```
 
 ## 2. Create the MySQL database
 
-cPanel → **MySQL Databases**:
+cPanel → **MySQL Databases** — already done if you've followed along:
+database `prosdfwo_vipmobiles`, user `prosdfwo_vipmobiles`, full privileges.
+Connection string (note `%40` for the literal `@` in the password — `@` is a
+separator character in connection strings, so it must be encoded):
 
-1. Create a database, e.g. `yourcpanelusername_vipmobiles`.
-2. Create a user with a strong password, add it to the database with **All
-   Privileges**.
-3. Note the full database name, username and host — on shared hosting the
-   host is almost always `localhost`. Your connection string will be:
+```
+mysql://prosdfwo_vipmobiles:VipMobiles%402026@localhost:3306/prosdfwo_vipmobiles
+```
 
-   ```
-   mysql://yourcpanelusername_dbuser:PASSWORD@localhost:3306/yourcpanelusername_vipmobiles
-   ```
-
-   If your password contains `@`, `:`, `/`, `?`, `#`, or `%`, URL-encode just
-   that character (`@` → `%40`, etc.) — connection strings use those
-   characters as separators, so a literal one in the password breaks parsing.
-
-## 3. Set up the API app
+## 3. Set up the backend
 
 cPanel → **Setup Node.js App** → **Create Application**:
 
-- **Node.js version**: latest available (needs 18.18+; pick 20 or 22 if offered)
+- **Node.js version**: 20 or 22 (cPanel often pre-fills something ancient
+  like 10.x — change it)
 - **Application mode**: Production
-- **Application root**: `repositories/vip-mobiles` (the repo root from step 1)
-- **Application URL**: a subdomain, e.g. `api.yourdomain.com` (create the
-  subdomain first in cPanel → Domains, if it doesn't exist)
-- **Application startup file**: `backend/dist/index.js`
+- **Application root**: `vipmobile.prosensia.pk/backend`
+- **Application URL**: a subdomain, e.g. `api.vipmobile.prosensia.pk`
+  (create the subdomain first in cPanel → Domains, if it doesn't exist —
+  keep this a **subdomain**, not a `/api` path suffix on the main domain:
+  the backend's own routes already start with `/api/...` internally, and
+  stacking cPanel's own path-based proxy prefix on top of that would very
+  likely double it and break every request)
+- **Application startup file**: `dist/index.js`
 
-Click **Create**. cPanel shows a command to enter the app's virtual
-environment, e.g.:
-
-```bash
-source /home/yourcpanelusername/nodevenv/repositories/vip-mobiles/20/bin/activate && cd /home/yourcpanelusername/repositories/vip-mobiles
-```
-
-Run that (via cPanel's **Terminal** or SSH), then:
+Click **Create**, then open the virtual environment cPanel gives you
+(via **Terminal** or SSH) and run:
 
 ```bash
-npm install                              # installs all workspaces
-npm run build --workspace=packages/shared
-npm run generate --workspace=packages/db
-npm run build --workspace=backend
+cd ~/vipmobile.prosensia.pk/backend
+npm install
+npm run build          # runs `prisma generate` then compiles TypeScript
 ```
 
-Back in **Setup Node.js App** → your API app → **Environment Variables**,
-add (values from `backend/.env.example`):
+Environment Variables for this app (**Setup Node.js App** → this app →
+**Environment Variables**):
 
 | Key | Value |
 |---|---|
@@ -96,109 +94,102 @@ add (values from `backend/.env.example`):
 | `DATABASE_URL` | the connection string from step 2 |
 | `JWT_ACCESS_SECRET` | generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `JWT_REFRESH_SECRET` | a **different** generated value |
-| `WEB_APP_URL` | `https://yourdomain.com` (your frontend's real URL) |
-| `COOKIE_DOMAIN` | `.yourdomain.com` (leading dot, so it's shared with the frontend) |
+| `WEB_APP_URL` | `https://vipmobile.prosensia.pk` |
+| `COOKIE_DOMAIN` | `.vipmobile.prosensia.pk` (leading dot, so it's shared with the frontend) |
 | `UPLOAD_DIR` | `uploads` |
 
-Install the schema once — either from the virtual environment terminal:
+## 4. Install the database schema
+
+Two ways — pick whichever's easier:
+
+**Terminal**, from the repo root (this one step still uses the root — it's
+the seed/migration tooling in `packages/db`, not either deployed app):
 
 ```bash
-npm run migrate:deploy --workspace=packages/db
-npm run seed --workspace=packages/db     # optional: demo data — see README
+cd ~/vipmobile.prosensia.pk
+npm install
+npm run db:migrate:deploy
+npm run db:seed          # optional: demo catalog/branches/staff — see README
 ```
 
-...or, if you'd rather not use the terminal at all, open cPanel →
-**phpMyAdmin**, select your database, open the **SQL** tab, and paste in the
-full contents of
+**phpMyAdmin** (no terminal needed): cPanel → **phpMyAdmin** → select
+`prosdfwo_vipmobiles` → **SQL** tab → paste the full contents of
 [`packages/db/prisma/migrations/20260823000000_init/migration.sql`](../packages/db/prisma/migrations/20260823000000_init/migration.sql)
-(generated straight from `prisma/schema.prisma`, so it's always in sync).
-Click **Go** — you should see 20 tables appear. The demo-data seed script
-still needs the terminal (it's a Node script, not raw SQL), so if you go the
-phpMyAdmin route you'll start with an empty schema and configure everything
-from scratch in the admin.
+→ **Go**. You should see 20 tables appear. The demo-data seed script still
+needs the terminal (it's a Node script, not raw SQL), so this route starts
+with an empty schema — configure everything from scratch in the admin.
 
-Click **Restart** on the API app.
+Click **Restart** on the backend app.
 
-## 4. Set up the web app
+## 5. Set up the frontend
 
-The frontend builds to a **self-contained folder** (`next build`'s
-`output: "standalone"` mode) — `frontend/.next/standalone/frontend/` ends up
-with its own `server.js` and its own `node_modules`, so this one app doesn't
-need a workspace-aware `npm install` in its Application Root the way the API
-does.
+cPanel → **Setup Node.js App** → **Create Application**:
 
-First build it. From the **API app's** virtual environment (or any shell
-with the repo's `npm install` already done, per step 3) run:
-
-```bash
-cd ~/repositories/vip-mobiles
-npm run build --workspace=frontend
-```
-
-This produces `frontend/.next/standalone/frontend/` — a complete, directly
-runnable copy of the frontend (the build script copies `public/` and
-`.next/static/` into it automatically, since Next doesn't do that on its
-own).
-
-**Don't point cPanel at that folder directly** — cPanel refuses to create a
-Node.js App whose Application Root sits inside another app's root ("The
-application cannot be located inside of already existing one"), and this
-folder is nested under the API app's root. Copy it out to a sibling
-directory instead:
-
-```bash
-rm -rf ~/vip-web
-cp -r frontend/.next/standalone/frontend ~/vip-web
-```
-
-Re-run those two lines after every future frontend rebuild — it's a stale
-copy otherwise.
-
-Now, **Setup Node.js App** → **Create Application**:
-
-- **Application root**: `vip-web`
-- **Application URL**: your main domain, e.g. `yourdomain.com`
+- **Node.js version**: same as backend
+- **Application mode**: Production
+- **Application root**: `vipmobile.prosensia.pk/frontend`
+- **Application URL**: your main domain, `vipmobile.prosensia.pk`
 - **Application startup file**: `server.js`
 
-Environment Variables for this app:
+Environment Variables:
 
 | Key | Value |
 |---|---|
 | `NODE_ENV` | `production` |
-| `API_INTERNAL_URL` | `http://127.0.0.1:<API app's port>` — shown on the API app's Setup Node.js App page |
-| `NEXT_PUBLIC_SITE_URL` | `https://yourdomain.com` |
+| `API_INTERNAL_URL` | `http://127.0.0.1:<backend app's port>` — shown on the backend app's Setup Node.js App page |
+| `NEXT_PUBLIC_SITE_URL` | `https://vipmobile.prosensia.pk` |
 
-Click **Restart** on the web app. Visit your domain — the storefront should
-load, and `/admin`/`/portal` should reach the login page.
+Open this app's virtual environment terminal and run:
 
-<details>
-<summary>Alternative: skip standalone mode</summary>
+```bash
+cd ~/vipmobile.prosensia.pk/frontend
+npm install
+npm run build
+```
 
-If you'd rather not rebuild after every deploy, or the standalone path feels
-fragile on your account, you can instead point this app's Application Root
-at the repo root (same as the API) with startup file `frontend/server.js` —
-a plain custom-server wrapper that also works, at the cost of running from
-the full (larger) monorepo `node_modules` instead of a pruned folder.
+Click **Restart**. Visit `vipmobile.prosensia.pk` — the storefront should
+load, and `/login` should reach the admin/portal sign-in page.
 
-</details>
+## 6. Redeploying after future changes
 
-## 5. Redeploying after future changes
+```bash
+cd ~/vipmobile.prosensia.pk
+git pull
+```
 
-1. Push to GitHub as usual.
-2. cPanel → Git Version Control → your repo → **Update from Remote** → **Deploy HEAD Commit**.
-3. From the virtual environment(s): re-run whichever of `npm install`,
-   `npm run build --workspace=...`, or `npm run migrate:deploy --workspace=packages/db`
-   are relevant to what changed. If the frontend changed, also re-copy it:
-   `rm -rf ~/vip-web && cp -r frontend/.next/standalone/frontend ~/vip-web`.
-4. Click **Restart** on whichever app(s) changed (Setup Node.js App page).
+Then, for whichever app actually changed:
 
-## 6. Before going live
+```bash
+cd backend && npm install && npm run build       # if backend changed
+cd frontend && npm install && npm run build       # if frontend changed
+```
+
+If the database schema changed, also re-run step 4's migrate/phpMyAdmin
+step. Click **Restart** on whichever app(s) you rebuilt — rebuild first,
+restart second; a restart alone won't pick up a build you haven't re-run.
+
+## Keeping things in sync
+
+`backend/src/shared.ts` and `frontend/src/shared.ts` are generated copies of
+`packages/shared/src/*.ts`, and `backend/prisma/schema.prisma` is a copy of
+`packages/db/prisma/schema.prisma` (with the custom `output` path stripped,
+since standalone Prisma generates straight into `backend/node_modules/@prisma/client`
+instead). If you change any of the source files in `packages/`, resync both
+copies with one command from the repo root:
+
+```bash
+node scripts/sync-standalone.mjs
+```
+
+Commit the regenerated files alongside your source change.
+
+## 7. Before going live
 
 Once you're happy everything works with the demo data, go to
-**Admin → Go-Live Setup** in the site itself (or run
-`npm run db:reset --workspace=packages/db` from the virtual environment) to
-wipe the seeded demo catalog/staff/sales and configure real store settings.
-See the main [README](../README.md) for what that does and preserves.
+**Admin → Go-Live Setup** in the site itself (or run `npm run db:reset` from
+`~/vipmobile.prosensia.pk` with `packages/db` installed) to wipe the seeded
+demo catalog/staff/sales and configure real store settings. See the main
+[README](../README.md) for what that does and preserves.
 
 ## Troubleshooting
 
@@ -206,20 +197,23 @@ See the main [README](../README.md) for what that does and preserves.
   Check **Setup Node.js App** → your app → there's a link to its error log.
   A missing/incorrect environment variable (especially `DATABASE_URL`) is
   the most common cause.
-- **"Cannot find module '@vip/shared'"** (API app, or the web app if you're
-  using the non-standalone alternative): `npm install` was run somewhere
-  other than the repo root, so npm workspaces didn't link it — re-run
-  `npm install` from `repositories/vip-mobiles` (Application Root), not from
-  inside `backend` or `frontend`.
-- **Web app serves stale content after a redeploy**: `next build` rewrites
-  `frontend/.next/standalone/frontend/` from scratch each time, so re-running
-  the build then clicking **Restart** (in that order) on the web app is
-  required — a restart alone won't pick up a build you haven't re-run yet.
-- **Images not showing**: confirm `UPLOAD_DIR` for the API app resolves to a
-  writable folder (it's relative to the API's Application Root) and that
-  `API_INTERNAL_URL` on the web app points at the API's real internal port.
-- **npm install runs out of memory** on a low-tier plan: run
-  `npm install --omit=dev` for the *running* app after building once with
-  dev dependencies included elsewhere (dev deps are only needed to build,
-  not to run the compiled/built output) — or ask Namecheap support to
-  temporarily bump your account's process memory limit for the install.
+- **`npm error 404 '@vip/shared@*' is not in this registry`**: this means
+  you're running an older clone from before the standalone restructure, or
+  `git pull` didn't actually update — re-run `git pull` from
+  `~/vipmobile.prosensia.pk` and confirm `backend/src/shared.ts` exists
+  before running `npm install` again.
+- **cPanel error: "The application cannot be located inside of already
+  existing one"**: one app's Application Root is a subfolder of the other's.
+  `backend` and `frontend` must be **siblings** — `vipmobile.prosensia.pk/backend`
+  and `vipmobile.prosensia.pk/frontend` — never one set to the parent of the
+  other.
+- **Images not showing**: confirm `UPLOAD_DIR` for the backend app resolves
+  to a writable folder (relative to `vipmobile.prosensia.pk/backend`) and
+  that `API_INTERNAL_URL` on the frontend app points at the backend's real
+  internal port.
+- **npm install runs out of memory** on a low-tier plan: dev dependencies
+  (typescript, prisma CLI, etc.) are only needed to build, not to run the
+  compiled output — after a successful build you can `npm prune --omit=dev`
+  in that app's folder to shrink its running footprint, or ask Namecheap
+  support to temporarily raise your account's process memory limit for the
+  install.

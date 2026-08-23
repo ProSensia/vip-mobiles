@@ -4,7 +4,7 @@ import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { authenticate, requireAnyPermission } from "../../middleware/auth";
 import { imageUpload } from "../../middleware/upload";
 import { processGenericImage } from "../../utils/image";
-import { PERMISSIONS } from "@vip/shared";
+import { PERMISSIONS } from "../../shared";
 
 const router = Router();
 

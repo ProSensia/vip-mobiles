@@ -8,7 +8,7 @@ const errorHandler_1 = require("../../middleware/errorHandler");
 const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
 const audit_1 = require("../../utils/audit");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 const router = (0, express_1.Router)();
 exports.DEFAULT_SETTINGS = {
     siteName: "VIP Mobiles",

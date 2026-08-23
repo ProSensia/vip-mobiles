@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uniqueProductSlug = uniqueProductSlug;
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../shared");
 const prisma_1 = require("../lib/prisma");
 /** Generates a unique product slug, appending -2, -3, ... on collision. */
 async function uniqueProductSlug(title, excludeId) {

@@ -18,7 +18,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { Permission } from "@vip/shared";
+import type { Permission } from "../../shared";
 
 export interface NavItem {
   href: string;

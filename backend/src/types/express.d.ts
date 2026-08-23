@@ -1,4 +1,4 @@
-import type { RoleName, PermissionOverrides } from "@vip/shared";
+import type { RoleName, PermissionOverrides } from "../shared";
 
 declare global {
   namespace Express {

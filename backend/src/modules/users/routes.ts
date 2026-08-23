@@ -9,7 +9,7 @@ import { hashPassword } from "../../utils/password";
 import { hashToken } from "../../utils/jwt";
 import { sendMail } from "../../lib/mailer";
 import { recordAudit } from "../../utils/audit";
-import { PERMISSIONS, ROLES, effectivePermissions } from "@vip/shared";
+import { PERMISSIONS, ROLES, effectivePermissions } from "../../shared";
 import { env } from "../../env";
 
 const router = Router();

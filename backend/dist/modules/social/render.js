@@ -10,7 +10,7 @@ exports.formatCreativePrice = formatCreativePrice;
 const sharp_1 = __importDefault(require("sharp"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 Object.defineProperty(exports, "BRAND", { enumerable: true, get: function () { return shared_1.BRAND; } });
 const env_1 = require("../../env");
 const svgUtils_1 = require("./svgUtils");

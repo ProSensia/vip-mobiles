@@ -5,7 +5,7 @@ const zod_1 = require("zod");
 const prisma_1 = require("../../lib/prisma");
 const errorHandler_1 = require("../../middleware/errorHandler");
 const auth_1 = require("../../middleware/auth");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 const router = (0, express_1.Router)();
 const querySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).default(1),

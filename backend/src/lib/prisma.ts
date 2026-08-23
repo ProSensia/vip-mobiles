@@ -1,4 +1,4 @@
-import { PrismaClient } from "@vip/db";
+import { PrismaClient } from "@prisma/client";
 import { isProd } from "../env";
 
 declare global {

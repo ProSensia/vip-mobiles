@@ -1,7 +1,7 @@
 import sharp, { type OverlayOptions } from "sharp";
 import fs from "fs";
 import path from "path";
-import { BRAND, BRAND_COLORS, SOCIAL_GRADIENTS, formatCurrency, type SocialGradientId } from "@vip/shared";
+import { BRAND, BRAND_COLORS, SOCIAL_GRADIENTS, formatCurrency, type SocialGradientId } from "../../shared";
 import { env } from "../../env";
 import { escapeXml, wrapText } from "./svgUtils";
 

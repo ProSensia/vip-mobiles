@@ -7,7 +7,7 @@ import { validateBody } from "../../middleware/validate";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import { storage } from "../../lib/storage";
 import { recordAudit } from "../../utils/audit";
-import { PERMISSIONS, SOCIAL_GRADIENTS } from "@vip/shared";
+import { PERMISSIONS, SOCIAL_GRADIENTS } from "../../shared";
 import { renderInstagramCreative, renderTikTokCreative, formatCreativePrice } from "./render";
 
 const router = Router();

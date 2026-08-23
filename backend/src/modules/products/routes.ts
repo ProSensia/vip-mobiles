@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
-import { Prisma } from "@vip/db";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { validateBody, validateQuery } from "../../middleware/validate";
 import { authenticate, authenticateOptional, requirePermission } from "../../middleware/auth";
 import { recordAudit } from "../../utils/audit";
 import { uniqueProductSlug } from "../../utils/uniqueSlug";
-import { PERMISSIONS } from "@vip/shared";
+import { PERMISSIONS } from "../../shared";
 import variantsRouter from "./variants.routes";
 import imagesRouter from "./images.routes";
 import videosRouter from "./videos.routes";

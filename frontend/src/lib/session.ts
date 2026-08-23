@@ -1,5 +1,5 @@
 import "server-only";
-import type { Permission, RoleName } from "@vip/shared";
+import type { Permission, RoleName } from "../shared";
 import { serverApiSafe } from "./api";
 
 export interface SessionUser {

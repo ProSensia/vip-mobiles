@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea, FormField } from "@/components/ui/Input";
 import { formatCurrency, cn } from "@/lib/utils";
-import { buildBuyRequestWhatsAppUrl } from "@vip/shared";
+import { buildBuyRequestWhatsAppUrl } from "../../../shared";
 
 interface Variant {
   id: string;

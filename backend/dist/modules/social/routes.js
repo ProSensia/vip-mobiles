@@ -9,7 +9,7 @@ const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
 const storage_1 = require("../../lib/storage");
 const audit_1 = require("../../utils/audit");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 const render_1 = require("./render");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.SOCIAL_GENERATE));

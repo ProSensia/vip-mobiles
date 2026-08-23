@@ -9,7 +9,7 @@ const auth_1 = require("../../middleware/auth");
 const upload_1 = require("../../middleware/upload");
 const image_1 = require("../../utils/image");
 const audit_1 = require("../../utils/audit");
-const shared_1 = require("@vip/shared");
+const shared_1 = require("../../shared");
 const router = (0, express_1.Router)({ mergeParams: true });
 // Batch upload: accepts up to 20 images in one request, processes each with
 // sharp (WebP + AVIF, three responsive widths) and persists them in the
