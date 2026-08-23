@@ -9,10 +9,9 @@ build/
 .next/
 out/
 
-# Env files
-.env
-.env.local
-.env.*.local
+# Env files — anything starting with .env is a real-secrets file (.env,
+# .env.local, .env.production, .env.development, etc.) except .env.example
+.env*
 !.env.example
 
 # Logs
