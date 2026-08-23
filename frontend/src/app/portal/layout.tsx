@@ -11,7 +11,11 @@ export default async function PortalLayout({ children }: { children: React.React
   const user = await getSession();
   if (!user) redirect("/login?next=/portal");
 
-  const nav = filterNav(PORTAL_NAV, user.permissions, user.role);
+  const nav = filterNav(PORTAL_NAV, user.permissions, user.role).map((item) => ({
+    href: item.href,
+    label: item.label,
+    icon: <item.icon className="h-[18px] w-[18px]" />,
+  }));
 
   return (
     <DashboardShell nav={nav} user={user} title="Sales Portal">

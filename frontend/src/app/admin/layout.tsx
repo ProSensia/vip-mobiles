@@ -12,7 +12,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const user = await getSession();
   if (!user) redirect("/login?next=/admin");
 
-  const nav = filterNav(ADMIN_NAV, user.permissions, user.role);
+  const nav = filterNav(ADMIN_NAV, user.permissions, user.role).map((item) => ({
+    href: item.href,
+    label: item.label,
+    icon: <item.icon className="h-[18px] w-[18px]" />,
+  }));
 
   return (
     <DashboardShell nav={nav} user={user} title="Admin Dashboard">

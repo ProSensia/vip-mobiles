@@ -7,8 +7,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clientApi } from "@/lib/clientApi";
-import type { NavItem } from "./nav";
 import type { SessionUser } from "@/lib/session";
+
+// icon is a pre-rendered element (not a component reference) — the caller is
+// a Server Component, and passing a raw component/function as a prop across
+// the server→client boundary isn't serializable ("Functions cannot be passed
+// directly to Client Components").
+export interface RenderedNavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+}
 
 export function DashboardShell({
   nav,
@@ -16,7 +25,7 @@ export function DashboardShell({
   title,
   children,
 }: {
-  nav: NavItem[];
+  nav: RenderedNavItem[];
   user: SessionUser;
   title: string;
   children: React.ReactNode;
@@ -50,7 +59,7 @@ export function DashboardShell({
                 active ? "bg-gold-500/15 text-gold-400" : "text-cream/80 hover:bg-ink-800 hover:text-cream"
               )}
             >
-              <item.icon className="h-[18px] w-[18px]" />
+              {item.icon}
               {item.label}
             </Link>
           );
