@@ -56,6 +56,10 @@ cPanel → **MySQL Databases**:
    mysql://yourcpanelusername_dbuser:PASSWORD@localhost:3306/yourcpanelusername_vipmobiles
    ```
 
+   If your password contains `@`, `:`, `/`, `?`, `#`, or `%`, URL-encode just
+   that character (`@` → `%40`, etc.) — connection strings use those
+   characters as separators, so a literal one in the password breaks parsing.
+
 ## 3. Set up the API app
 
 cPanel → **Setup Node.js App** → **Create Application**:
@@ -96,12 +100,22 @@ add (values from `apps/api/.env.example`):
 | `COOKIE_DOMAIN` | `.yourdomain.com` (leading dot, so it's shared with the frontend) |
 | `UPLOAD_DIR` | `uploads` |
 
-Run the database migration once (from the same activated virtual environment):
+Install the schema once — either from the virtual environment terminal:
 
 ```bash
 npm run migrate:deploy --workspace=packages/db
 npm run seed --workspace=packages/db     # optional: demo data — see README
 ```
+
+...or, if you'd rather not use the terminal at all, open cPanel →
+**phpMyAdmin**, select your database, open the **SQL** tab, and paste in the
+full contents of
+[`packages/db/prisma/migrations/20260823000000_init/migration.sql`](../packages/db/prisma/migrations/20260823000000_init/migration.sql)
+(generated straight from `prisma/schema.prisma`, so it's always in sync).
+Click **Go** — you should see 20 tables appear. The demo-data seed script
+still needs the terminal (it's a Node script, not raw SQL), so if you go the
+phpMyAdmin route you'll start with an empty schema and configure everything
+from scratch in the admin.
 
 Click **Restart** on the API app.
 
