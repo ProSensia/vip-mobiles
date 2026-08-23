@@ -18,15 +18,15 @@ build/
 out/
 .next/
 
-# Env files — anything starting with .env is a real-secrets file (.env,
-# .env.local, .env.production, .env.development, etc.) except .env.example
+# Env files — deliberately tracked (not ignored) for the three real deploy
+# configs so `git pull` on the server brings working secrets with it, no
+# manual cPanel/terminal step needed. Still ignore any *other* .env variant
+# (.env.local, .env.test, etc.) that isn't one of these three.
 .env*
 !.env.example
-
-# Same secrets, temporarily renamed without a leading dot so they show up in
-# file managers that hide dotfiles by default (e.g. cPanel File Manager) —
-# delete these locally once uploaded.
-env-upload-then-rename-to-*
+!backend/.env
+!packages/db/.env
+!frontend/.env.production
 
 # Logs
 npm-debug.log*
