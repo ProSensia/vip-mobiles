@@ -48,7 +48,21 @@ function createApp() {
         immutable: true,
         etag: true,
     }));
-    app.get("/health", (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+    const healthCheck = (_req, res) => res.json({ ok: true, time: new Date().toISOString() });
+    app.get("/health", healthCheck);
+    app.get("/api/health", healthCheck);
+    // cPanel/Passenger's PassengerBaseURI path-mounting (e.g. this app claiming
+    // "/api" under a shared domain) isn't guaranteed to strip that prefix
+    // before handing the request to us — behavior differs by setup, and ours
+    // is registered assuming the full "/api/..." path arrives intact (matching
+    // local dev, where Next's rewrite forwards the full path unchanged). If the
+    // prefix got stripped, put it back so every route below still matches.
+    app.use((req, _res, next) => {
+        if (!req.path.startsWith("/api/") && req.path !== "/health" && !req.path.startsWith("/uploads/")) {
+            req.url = "/api" + req.url;
+        }
+        next();
+    });
     app.use("/api/auth", routes_1.default);
     app.use("/api/users", routes_2.default);
     app.use("/api/brands", routes_3.default);
