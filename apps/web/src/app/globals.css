@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Poppins", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+* {
+  border-color: theme("colors.ink.600");
+}
+
+body {
+  background-color: theme("colors.ink.950");
+  color: theme("colors.cream");
+}
+
+::selection {
+  background-color: theme("colors.gold.500");
+  color: theme("colors.ink.950");
+}
+
+/* Thin, on-brand scrollbar for horizontal image strips / admin tables */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: theme("colors.ink.600");
+  border-radius: 999px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, theme("colors.ink.800") 25%, theme("colors.ink.700") 37%, theme("colors.ink.800") 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+.container-page {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}

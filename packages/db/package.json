@@ -1,0 +1,31 @@
+{
+  "name": "@vip/db",
+  "version": "1.0.0",
+  "private": true,
+  "main": "generated/client/index.js",
+  "types": "generated/client/index.d.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "tsx scripts/seed.ts",
+    "reset": "tsx scripts/reset-demo-data.ts",
+    "studio": "prisma studio",
+    "build": "prisma generate",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@vip/shared": "*"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "bcryptjs": "^2.4.3",
+    "nanoid": "^3.3.8",
+    "sharp": "^0.35.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.2"
+  }
+}

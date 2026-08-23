@@ -1,0 +1,504 @@
+// VIP Mobiles - Database Schema
+// MySQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  SALES_MANAGER
+  SALES_STAFF
+  CONTENT_MANAGER
+}
+
+enum ProductCondition {
+  NEW
+  USED
+  REFURBISHED
+  OPEN_BOX
+}
+
+enum ProductStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  HIDDEN
+}
+
+enum VideoPlatform {
+  YOUTUBE
+  TIKTOK
+  INSTAGRAM
+}
+
+enum HomepageSectionType {
+  FEATURED_PRODUCTS
+  NEW_ARRIVALS
+  FEATURED_CATEGORIES
+  SELECTED_PRODUCTS
+  BANNER
+  BRANCHES
+  CUSTOM_HTML
+}
+
+enum BannerPlacement {
+  HOME_HERO
+  HOME_STRIP
+  CATALOG_TOP
+}
+
+enum BuyRequestStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TIKTOK
+}
+
+// ---------------------------------------------------------------------------
+// Auth / Users / RBAC
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  name         String    @db.VarChar(150)
+  email        String    @unique @db.VarChar(190)
+  passwordHash String
+  role         Role      @default(SALES_STAFF)
+  // Fine-grained overrides on top of role defaults: { "grant": ["..."], "revoke": ["..."] }
+  permissions  Json?
+  isActive     Boolean   @default(true)
+  isDemo       Boolean   @default(false)
+  avatarUrl    String?
+  branchId     String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  branch            Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  staffProfile      StaffProfile?
+  createdProducts   Product[]           @relation("ProductCreatedBy")
+  sales             Sale[]              @relation("SaleStaff")
+  socialCreatives   SocialCreative[]
+  auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordResetToken[]
+  buyRequestUpdates BuyRequest[]        @relation("BuyRequestHandledBy")
+
+  @@index([role])
+  @@index([branchId])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model StaffProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  branchId      String?
+  position      String?  @db.VarChar(150)
+  bio           String?  @db.Text
+  photoUrl      String?
+  phone         String?  @db.VarChar(50)
+  displayOnSite Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([branchId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog: Brands / Categories / Colors
+// ---------------------------------------------------------------------------
+
+model Brand {
+  id              String   @id @default(cuid())
+  name            String   @db.VarChar(120)
+  slug            String   @unique @db.VarChar(140)
+  logoUrl         String?
+  description     String?  @db.Text
+  isActive        Boolean  @default(true)
+  isDemo          Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  metaTitle       String?  @db.VarChar(200)
+  metaDescription String?  @db.VarChar(320)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  products Product[]
+
+  @@index([isActive])
+}
+
+model Category {
+  id              String   @id @default(cuid())
+  name            String   @db.VarChar(120)
+  slug            String   @unique @db.VarChar(140)
+  description     String?  @db.Text
+  imageUrl        String?
+  parentId        String?
+  isActive        Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  isDemo          Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  metaTitle       String?  @db.VarChar(200)
+  metaDescription String?  @db.VarChar(320)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([parentId])
+}
+
+model Color {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(60)
+  hexCode   String   @db.VarChar(9)
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  variants ProductVariant[]
+}
+
+// ---------------------------------------------------------------------------
+// Products
+// ---------------------------------------------------------------------------
+
+model Product {
+  id              String           @id @default(cuid())
+  title           String           @db.VarChar(200)
+  slug            String           @unique @db.VarChar(220)
+  sku             String?          @db.VarChar(80)
+  brandId         String
+  categoryId      String
+  branchId        String?
+  createdById     String
+  condition       ProductCondition @default(USED)
+  status          ProductStatus    @default(AVAILABLE)
+  description     String?          @db.Text
+  specifications  Json?
+  basePrice       Decimal          @db.Decimal(10, 2)
+  compareAtPrice  Decimal?         @db.Decimal(10, 2)
+  boxAvailable    Boolean          @default(false)
+  isFeatured      Boolean          @default(false)
+  isNewArrival    Boolean          @default(false)
+  isDemo          Boolean          @default(false)
+  viewCount       Int              @default(0)
+  soldAt          DateTime?
+  soldPrice       Decimal?         @db.Decimal(10, 2)
+  metaTitle       String?          @db.VarChar(200)
+  metaDescription String?          @db.VarChar(320)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  brand       Brand             @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  category    Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  branch      Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdBy   User              @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  variants    ProductVariant[]
+  images      ProductImage[]
+  videos      ProductVideo[]
+  reviews     Review[]
+  buyRequests BuyRequest[]
+  sale        Sale?
+  creatives   SocialCreative[]
+
+  @@index([status])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([branchId])
+  @@index([isFeatured])
+  @@index([isNewArrival])
+  @@index([createdAt])
+}
+
+model ProductVariant {
+  id        String        @id @default(cuid())
+  productId String
+  colorId   String?
+  storage   String?       @db.VarChar(40)
+  ram       String?       @db.VarChar(40)
+  sku       String?       @db.VarChar(80)
+  price     Decimal       @db.Decimal(10, 2)
+  stockQty  Int           @default(0)
+  status    ProductStatus @default(AVAILABLE)
+  isDefault Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color   Color?  @relation(fields: [colorId], references: [id], onDelete: SetNull)
+  sales   Sale[]
+
+  @@index([productId])
+  @@index([colorId])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  webpUrl   String?
+  avifUrl   String?
+  thumbUrl  String?
+  width     Int?
+  height    Int?
+  sortOrder Int      @default(0)
+  isPrimary Boolean  @default(false)
+  altText   String?  @db.VarChar(200)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductVideo {
+  id        String        @id @default(cuid())
+  productId String
+  platform  VideoPlatform
+  url       String
+  embedId   String?
+  caption   String?       @db.VarChar(300)
+  sortOrder Int           @default(0)
+  createdAt DateTime      @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  productId    String
+  customerName String   @db.VarChar(120)
+  rating       Int
+  comment      String?  @db.Text
+  isApproved   Boolean  @default(false)
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([isApproved])
+}
+
+// ---------------------------------------------------------------------------
+// Branches
+// ---------------------------------------------------------------------------
+
+model Branch {
+  id              String   @id @default(cuid())
+  name            String   @db.VarChar(150)
+  slug            String   @unique @db.VarChar(170)
+  address         String   @db.VarChar(300)
+  city            String   @db.VarChar(120)
+  state           String?  @db.VarChar(120)
+  country         String?  @db.VarChar(120)
+  lat             Float?
+  lng             Float?
+  mapUrl          String?  @db.Text
+  phone           String?  @db.VarChar(50)
+  whatsapp        String?  @db.VarChar(50)
+  email           String?  @db.VarChar(190)
+  openingHours    Json?
+  imageUrl        String?
+  isActive        Boolean  @default(true)
+  isDemo          Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  metaTitle       String?  @db.VarChar(200)
+  metaDescription String?  @db.VarChar(320)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  staffUsers   User[]
+  staffProfiles StaffProfile[]
+  products     Product[]
+  sales        Sale[]
+
+  @@index([isActive])
+}
+
+// ---------------------------------------------------------------------------
+// Homepage / CMS Content
+// ---------------------------------------------------------------------------
+
+model HomepageSection {
+  id        String              @id @default(cuid())
+  type      HomepageSectionType
+  title     String?             @db.VarChar(200)
+  subtitle  String?             @db.VarChar(300)
+  config    Json?
+  sortOrder Int                 @default(0)
+  isVisible Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([isVisible])
+  @@index([sortOrder])
+}
+
+model Banner {
+  id             String          @id @default(cuid())
+  title          String?         @db.VarChar(200)
+  imageUrl       String
+  mobileImageUrl String?
+  link           String?         @db.VarChar(300)
+  placement      BannerPlacement @default(HOME_HERO)
+  sortOrder      Int             @default(0)
+  isActive       Boolean         @default(true)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([placement])
+  @@index([isActive])
+}
+
+// ---------------------------------------------------------------------------
+// Buy Requests / Sales
+// ---------------------------------------------------------------------------
+
+model BuyRequest {
+  id            String            @id @default(cuid())
+  productId     String
+  variantLabel  String?           @db.VarChar(120)
+  customerName  String            @db.VarChar(150)
+  contact       String            @db.VarChar(150)
+  offeredPrice  Decimal?          @db.Decimal(10, 2)
+  message       String?           @db.Text
+  status        BuyRequestStatus  @default(NEW)
+  handledById   String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  handledBy User?   @relation("BuyRequestHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([status])
+}
+
+model Sale {
+  id              String   @id @default(cuid())
+  productId       String   @unique
+  variantId       String?
+  branchId        String?
+  staffId         String
+  soldPrice       Decimal  @db.Decimal(10, 2)
+  costPrice       Decimal? @db.Decimal(10, 2)
+  profit          Decimal? @db.Decimal(10, 2)
+  customerName    String?  @db.VarChar(150)
+  customerContact String?  @db.VarChar(150)
+  saleDate        DateTime @default(now())
+  notes           String?  @db.Text
+  isDemo          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  branch  Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  staff   User            @relation("SaleStaff", fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@index([branchId])
+  @@index([staffId])
+  @@index([saleDate])
+}
+
+// ---------------------------------------------------------------------------
+// Social Media Generator
+// ---------------------------------------------------------------------------
+
+model SocialCreative {
+  id          String         @id @default(cuid())
+  productId   String
+  platform    SocialPlatform
+  config      Json
+  imageUrl    String
+  createdById String?
+  createdAt   DateTime       @default(now())
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([platform])
+}
+
+// ---------------------------------------------------------------------------
+// Settings / Audit
+// ---------------------------------------------------------------------------
+
+model Setting {
+  key       String   @id @db.VarChar(100)
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   @db.VarChar(150)
+  entityType String   @db.VarChar(80)
+  entityId   String?  @db.VarChar(80)
+  meta       Json?
+  ipAddress  String?  @db.VarChar(60)
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

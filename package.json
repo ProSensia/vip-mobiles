@@ -1,0 +1,35 @@
+{
+  "name": "vip-mobiles",
+  "private": true,
+  "version": "1.0.0",
+  "description": "VIP Mobiles - Mobile Store E-commerce & Management Platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run build --workspace=packages/shared && npm run generate --workspace=packages/db",
+    "dev": "npm run build --workspace=packages/shared && concurrently -n API,WEB -c blue,yellow \"npm run dev --workspace=apps/api\" \"npm run dev --workspace=apps/web\"",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/db && npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "start": "concurrently -n API,WEB -c blue,yellow \"npm run start --workspace=apps/api\" \"npm run start --workspace=apps/web\"",
+    "db:generate": "npm run generate --workspace=packages/db",
+    "db:migrate": "npm run migrate --workspace=packages/db",
+    "db:migrate:deploy": "npm run migrate:deploy --workspace=packages/db",
+    "db:seed": "npm run seed --workspace=packages/db",
+    "db:reset": "npm run reset --workspace=packages/db",
+    "db:studio": "npm run studio --workspace=packages/db",
+    "lint": "npm run lint --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=packages/shared && npm run typecheck --workspace=packages/db && npm run typecheck --workspace=apps/api && npm run typecheck --workspace=apps/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
