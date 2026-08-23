@@ -3,3 +3,18 @@ PassengerBaseURI "/"
 PassengerNodejs "/home/prosdfwo/nodevenv/vipmobile.prosensia.pk/frontend/20/bin/node"
 PassengerAppType node
 PassengerStartupFile server.js
+
+# The domain docroot is the whole repo checkout, so Apache/LiteSpeed will
+# happily serve these folders/files as plain static content — bypassing
+# Passenger entirely — for anyone who requests them directly. backend/ and
+# packages/db/ contain real .env files with production DB/JWT secrets, so
+# this isn't just a routing nuisance, it's a live credential leak until
+# blocked explicitly.
+Options -Indexes
+
+<FilesMatch "(^\.env|\.env\.|docker-compose\.yml|package(-lock)?\.json)$">
+  Require all denied
+</FilesMatch>
+
+RewriteEngine On
+RewriteRule ^(backend|packages|docs|Logo|scripts)(/|$) - [F,L]
