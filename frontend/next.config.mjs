@@ -12,6 +12,15 @@ const nextConfig = {
   // not found" errors for every "@/..." import. Pinning it here forces Next
   // to treat this folder as self-contained, which it is.
   outputFileTracingRoot: path.resolve(import.meta.dirname),
+  // Shared hosting accounts (like Namecheap's cPanel plans) cap the number of
+  // processes a single account may run at once. Next's build spawns worker
+  // processes to collect page data in parallel by default, which can exceed
+  // that cap mid-build ("spawn ... EAGAIN"). Building single-threaded avoids
+  // spawning extra children — slower, but it actually completes.
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
   images: {
     // The API's upload pipeline already produces properly sized WebP/AVIF
     // renditions (large/medium/thumb) server-side, so Next's own on-demand
