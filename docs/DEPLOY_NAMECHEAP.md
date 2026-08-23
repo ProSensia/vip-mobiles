@@ -14,6 +14,13 @@ workspaces, no monorepo-root install required. You `cd` into one and run
 files (see "Keeping things in sync" below), but neither app depends on them
 at install time anymore.
 
+> **Always run `npm install --include=dev` here, not plain `npm install`.**
+> CloudLinux's Node Selector silently adds `--production` to installs for any
+> app set to "Production" mode, which skips `typescript`, the `prisma` CLI,
+> and `tailwindcss` — all needed to build, even though they're not needed to
+> run. Without the flag, `npm run build` fails with `tsc: command not found`
+> (backend) or `Cannot find module 'tailwindcss'` (frontend).
+
 ## 0. What you'll end up with
 
 - One MySQL database (cPanel → MySQL Databases)
@@ -81,7 +88,7 @@ Click **Create**, then open the virtual environment cPanel gives you
 
 ```bash
 cd ~/vipmobile.prosensia.pk/backend
-npm install
+npm install --include=dev
 npm run build          # runs `prisma generate` then compiles TypeScript
 ```
 
@@ -107,7 +114,7 @@ the seed/migration tooling in `packages/db`, not either deployed app):
 
 ```bash
 cd ~/vipmobile.prosensia.pk
-npm install
+npm install --include=dev
 npm run db:migrate:deploy
 npm run db:seed          # optional: demo catalog/branches/staff — see README
 ```
@@ -143,7 +150,7 @@ Open this app's virtual environment terminal and run:
 
 ```bash
 cd ~/vipmobile.prosensia.pk/frontend
-npm install
+npm install --include=dev
 npm run build
 ```
 
@@ -160,8 +167,8 @@ git pull
 Then, for whichever app actually changed:
 
 ```bash
-cd backend && npm install && npm run build       # if backend changed
-cd frontend && npm install && npm run build       # if frontend changed
+cd backend && npm install --include=dev && npm run build       # if backend changed
+cd frontend && npm install --include=dev && npm run build       # if frontend changed
 ```
 
 If the database schema changed, also re-run step 4's migrate/phpMyAdmin
