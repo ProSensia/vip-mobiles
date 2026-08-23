@@ -4,6 +4,12 @@ A full-stack mobile store platform: storefront, admin CMS, sales portal, and a
 social-media creative generator, built around the VIP Mobiles brand (black &
 gold, premium/luxury positioning).
 
+Repository: https://github.com/ProSensia/vip-mobiles (private)
+
+Deploying to Namecheap shared/business hosting (cPanel)? See
+[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md) for the full walkthrough
+— it covers cPanel's Node.js Selector, MySQL setup, and Git-based deploys.
+
 ## Stack
 
 | Layer | Tech |
@@ -136,11 +142,22 @@ npm run typecheck          # typecheck all workspaces
 
 ## Deployment Notes
 
+General notes for any host (VPS, Docker, etc.) — for Namecheap's cPanel
+shared/business hosting specifically, use
+[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md) instead, which covers
+the Node.js Selector/Passenger-specific setup these generic notes don't.
+
 - Run `apps/api` as a persistent Node process (PM2/systemd/Docker) — it
   serves `/uploads` directly and needs a writable `UPLOAD_DIR`.
-- Run `apps/web` with `next start` behind the same domain/proxy as the API,
-  using the rewrite rules in `next.config.mjs` (or equivalent reverse-proxy
-  rules) so `/api/*` and `/uploads/*` stay same-origin for cookies.
+- Run `apps/web` with `npm run start --workspace=apps/web` (a custom
+  `server.js`, not the `next start` CLI — needed for hosts that expect a
+  plain Node entry point) behind the same domain/proxy as the API, using the
+  rewrite rules in `next.config.mjs` (or equivalent reverse-proxy rules) so
+  `/api/*` and `/uploads/*` stay same-origin for cookies. `next build` also
+  produces a fully self-contained `apps/web/.next/standalone/apps/web/`
+  folder (own `server.js`, own `node_modules`, own copy of `public/` and
+  static assets) if you'd rather deploy the frontend as one standalone
+  folder instead of the whole monorepo.
 - Set `NODE_ENV=production`, strong `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`,
   and `COOKIE_DOMAIN` to your real domain.
 - Point `DATABASE_URL` at your production MySQL instance and run

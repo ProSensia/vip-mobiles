@@ -1,0 +1,22 @@
+# cPanel "Git Version Control" deployment config (used when you click
+# "Update from Remote" then "Deploy HEAD Commit" for this repo in cPanel).
+#
+# This intentionally does NOT run npm install/build/prisma commands here:
+# cPanel's deployment shell doesn't have this repo's Node.js version on PATH
+# by default (that only exists inside the per-app "virtual environment" that
+# Setup Node.js App creates, e.g. ~/nodevenv/<app-path>/<node-version>/bin) —
+# a path that's specific to your account and to when each app was created, so
+# it can't be hard-coded here safely. After deploying, run the install/build
+# steps from that virtual environment instead — see docs/DEPLOY_NAMECHEAP.md
+# for the exact commands cPanel shows you per app, or use the "Run NPM
+# Install" button on each app's Setup Node.js App page.
+#
+# What this file DOES do: keep the deployed working copy's untracked/ignored
+# files (uploads, .env, node_modules, build output) intact across deploys,
+# since cPanel's default deploy strategy syncs tracked files only anyway —
+# no extra tasks are required for that. This task list just confirms the
+# deploy completed; extend it once you're comfortable automating further.
+---
+deployment:
+  tasks:
+    - /bin/echo "Deployed $(git rev-parse --short HEAD). Now run the install/build steps from docs/DEPLOY_NAMECHEAP.md, then restart both apps in Setup Node.js App."
