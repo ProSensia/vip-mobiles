@@ -1,5 +1,13 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
 import { z } from "zod";
+
+// Load .env relative to this file's own location, not process.cwd() — under
+// Passenger the working directory the app is spawned with isn't guaranteed
+// to be the Application Root, so the plain `dotenv/config` default (which
+// only ever looks in cwd) can silently find nothing. This still never
+// overrides variables cPanel's own "Environment Variables" UI already set.
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
