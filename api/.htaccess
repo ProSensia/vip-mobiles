@@ -1,0 +1,5 @@
+PassengerAppRoot "/home/prosdfwo/vipmobile.prosensia.pk/backend"
+PassengerBaseURI "/api"
+PassengerNodejs "/home/prosdfwo/nodevenv/vipmobile.prosensia.pk/backend/20/bin/node"
+PassengerAppType node
+PassengerStartupFile dist/index.js
