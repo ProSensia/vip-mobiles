@@ -14,6 +14,11 @@ out/
 .env*
 !.env.example
 
+# Same secrets, temporarily renamed without a leading dot so they show up in
+# file managers that hide dotfiles by default (e.g. cPanel File Manager) —
+# delete these locally once uploaded.
+env-upload-then-rename-to-*
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
