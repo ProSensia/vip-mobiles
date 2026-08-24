@@ -23,4 +23,18 @@ Options -Indexes
 </FilesMatch>
 
 RewriteEngine On
-RewriteRule ^(backend|packages|docs|Logo|scripts)(/|$) - [F,L]
+
+# Serve uploaded product/media files directly as static files instead of
+# proxying every image through the Next.js/Node process. This is what was
+# actually causing broken/black images: Next's rewrite for /uploads/* was
+# pointed at the public domain, which isn't covered by the /api BaseURI, so
+# the webserver routed it straight back to the frontend app — a
+# self-referential proxy loop, occasionally manifesting as a reset
+# connection rather than a clean failure. Resolving it to a real file here
+# means Apache/LiteSpeed serves it directly, no Node process involved at
+# all — faster, and structurally can't loop. [END] fully stops rewrite
+# processing so this resolved path isn't re-evaluated against the block
+# rule below.
+RewriteRule ^uploads/(.*)$ backend/uploads/$1 [END]
+
+RewriteRule ^(backend(?!/uploads/)|packages|docs|Logo|scripts)(/|$) - [F,L]
