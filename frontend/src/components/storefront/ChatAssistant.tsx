@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MessageCircle, X, Send, Sparkles, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import { clientApi } from "@/lib/clientApi";
 import { formatCurrency, cn } from "@/lib/utils";
 
@@ -23,6 +23,14 @@ interface ChatProduct {
   imageUrl: string | null;
 }
 
+interface ChatContext {
+  brands?: string[];
+  categories?: string[];
+  condition?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
 interface ChatMessage {
   role: "user" | "assistant";
   text: string;
@@ -36,6 +44,14 @@ const SUGGESTIONS = ["Phones under 100k", "Best Samsung phone", "Compare iPhone 
 // The backend (/api/assistant/chat) parses brand/category/price/condition
 // keywords out of the message and answers entirely from our own Product
 // table, so every fact it states is live catalog data, not a guess.
+//
+// `context` is round-tripped with every request: the backend merges each
+// new message's signals on top of it, so a follow-up like "cheaper ones?"
+// or "what about used" refines the previous search instead of starting
+// over. The typing indicator has a floor time so a fast reply doesn't just
+// flash a blank moment — it briefly feels like someone's actually there.
+const MIN_TYPING_MS = 550;
+
 export function ChatAssistant() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -46,6 +62,7 @@ export function ChatAssistant() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const contextRef = useRef<ChatContext | undefined>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,8 +75,17 @@ export function ChatAssistant() {
     setMessages((m) => [...m, { role: "user", text: trimmed }]);
     setInput("");
     setLoading(true);
+    const startedAt = Date.now();
     try {
-      const res = await clientApi.post<{ reply: string; products?: ChatProduct[]; recommendation?: string }>("/assistant/chat", { message: trimmed });
+      const res = await clientApi.post<{
+        reply: string;
+        products?: ChatProduct[];
+        recommendation?: string;
+        context?: ChatContext;
+      }>("/assistant/chat", { message: trimmed, context: contextRef.current });
+      contextRef.current = res.context;
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_TYPING_MS) await new Promise((r) => setTimeout(r, MIN_TYPING_MS - elapsed));
       setMessages((m) => [...m, { role: "assistant", text: res.reply, products: res.products, recommendation: res.recommendation }]);
     } catch {
       setMessages((m) => [...m, { role: "assistant", text: "Sorry, I couldn't process that just now — please try again in a moment." }]);
@@ -89,11 +115,7 @@ export function ChatAssistant() {
             {messages.map((m, i) => (
               <ChatBubble key={i} message={m} />
             ))}
-            {loading && (
-              <div className="flex items-center gap-2 text-xs text-muted">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking...
-              </div>
-            )}
+            {loading && <TypingBubble />}
           </div>
 
           {messages.length <= 1 && (
@@ -137,10 +159,26 @@ export function ChatAssistant() {
   );
 }
 
+function TypingBubble() {
+  return (
+    <div className="flex animate-fade-in justify-start">
+      <div className="flex items-center gap-1 rounded-2xl bg-ink-800 px-4 py-3">
+        {[0, 150, 300].map((delay) => (
+          <span
+            key={delay}
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-cream/50"
+            style={{ animationDelay: `${delay}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   return (
-    <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
+    <div className={cn("flex animate-fade-in", isUser ? "justify-end" : "justify-start")}>
       <div className={cn("max-w-[88%] space-y-2", isUser && "flex flex-col items-end")}>
         <div
           className={cn(

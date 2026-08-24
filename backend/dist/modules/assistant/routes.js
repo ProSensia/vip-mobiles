@@ -8,7 +8,16 @@ const validate_1 = require("../../middleware/validate");
 const rateLimit_1 = require("../../middleware/rateLimit");
 const assistantNlp_1 = require("../../utils/assistantNlp");
 const router = (0, express_1.Router)();
-const chatSchema = zod_1.z.object({ message: zod_1.z.string().min(1).max(500) });
+const contextSchema = zod_1.z
+    .object({
+    brands: zod_1.z.array(zod_1.z.string()).optional(),
+    categories: zod_1.z.array(zod_1.z.string()).optional(),
+    condition: zod_1.z.enum(["NEW", "USED", "REFURBISHED", "OPEN_BOX"]).optional(),
+    minPrice: zod_1.z.number().optional(),
+    maxPrice: zod_1.z.number().optional(),
+})
+    .optional();
+const chatSchema = zod_1.z.object({ message: zod_1.z.string().min(1).max(500), context: contextSchema });
 const ASSISTANT_PRODUCT_SELECT = {
     id: true,
     title: true,
@@ -66,18 +75,86 @@ function buildRecommendation(items) {
     const diff = priciest.price - cheapest.price;
     return `If budget matters most, go with ${cheapest.title} — it's ${formatPKR(diff)} cheaper. If you want the higher-end option, ${priciest.title} is the step up.`;
 }
+// Small phrase banks, picked at random, so the assistant doesn't repeat the
+// exact same sentence on every turn — still fully deterministic/rule-based,
+// just varied enough not to read like a template being filled in.
+const GREETING_REPLIES = [
+    "Hi! I can help you find phones or accessories — tell me a brand, a budget, or what you're after.",
+    "Hello! What are you looking for — a specific brand, a price range, or just browsing what's popular?",
+    "Hey there! Let me know what you need and I'll check our live stock for you.",
+];
+const HOW_ARE_YOU_REPLIES = [
+    "Doing well, thanks for asking! What can I help you find today?",
+    "All good here — ready to help you find a phone. What are you thinking?",
+];
+const THANKS_REPLIES = [
+    "You're welcome! Let me know if you need anything else.",
+    "Anytime — happy to help if you have more questions.",
+    "No problem at all. Feel free to ask about anything else in stock.",
+];
+const FAREWELL_REPLIES = [
+    "Take care! Come back anytime you want to check stock or prices.",
+    "Goodbye! I'm here whenever you need help finding something.",
+];
+const HELP_REPLIES = [
+    'I\'m VIP Mobile\'s shopping assistant — ask things like "iPhone under 100k", "cheapest Samsung phone", or "compare iPhone 13 vs Galaxy S21", and I\'ll search our real, live stock for you.',
+];
+const RESULT_INTROS = [
+    (n, bits) => `Found ${n} option${n === 1 ? "" : "s"}${bits}, currently in stock:`,
+    (n, bits) => `Here${n === 1 ? "'s" : " are"} ${n} match${n === 1 ? "" : "es"}${bits}:`,
+    (n, bits) => `Take a look — ${n} in stock${bits}:`,
+];
+const NO_RESULTS_INTROS = [
+    "I couldn't find an exact match for that, but here are some popular picks in stock right now:",
+    "Nothing matched exactly — here's what's trending instead:",
+    "No exact match, but you might like these:",
+];
+const COMPARE_INTROS = [
+    (names) => `Comparing ${names}:`,
+    (names) => `Here's how ${names} stack up:`,
+    (names) => `Let's see how ${names} compare:`,
+];
+const SOLDOUT_INTROS = [
+    (title, status) => `${title} is currently ${status}, but here's what's similar and available:`,
+    (title, status) => `Looks like ${title} is ${status} right now — try one of these instead:`,
+];
 router.post("/chat", rateLimit_1.assistantLimiter, (0, validate_1.validateBody)(chatSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const message = req.body.message.trim();
+    const prevContext = req.body.context ?? {};
+    // --- Small talk short-circuits before any DB work, so a "hi" never
+    // gets treated as a failed product search. ---
+    if ((0, assistantNlp_1.isGreeting)(message))
+        return void res.json({ reply: (0, assistantNlp_1.pick)(GREETING_REPLIES), context: prevContext });
+    if ((0, assistantNlp_1.isHowAreYou)(message))
+        return void res.json({ reply: (0, assistantNlp_1.pick)(HOW_ARE_YOU_REPLIES), context: prevContext });
+    if ((0, assistantNlp_1.isThanks)(message))
+        return void res.json({ reply: (0, assistantNlp_1.pick)(THANKS_REPLIES), context: prevContext });
+    if ((0, assistantNlp_1.isFarewell)(message))
+        return void res.json({ reply: (0, assistantNlp_1.pick)(FAREWELL_REPLIES), context: prevContext });
+    if ((0, assistantNlp_1.isHelpRequest)(message))
+        return void res.json({ reply: (0, assistantNlp_1.pick)(HELP_REPLIES), context: prevContext });
+    const effectivePrevContext = (0, assistantNlp_1.isResetQuery)(message) ? {} : prevContext;
     const [brands, categories] = await Promise.all([
         prisma_1.prisma.brand.findMany({ select: { name: true } }),
         prisma_1.prisma.category.findMany({ select: { name: true } }),
     ]);
-    const matchedBrands = (0, assistantNlp_1.extractMatches)(message, brands.map((b) => b.name));
-    const matchedCategories = (0, assistantNlp_1.extractMatches)(message, categories.map((c) => c.name));
-    const condition = (0, assistantNlp_1.extractCondition)(message);
-    const { minPrice, maxPrice } = (0, assistantNlp_1.extractPriceRange)(message);
+    const newBrandMatches = (0, assistantNlp_1.extractMatches)(message, brands.map((b) => b.name));
+    const newCategoryMatches = (0, assistantNlp_1.extractMatches)(message, categories.map((c) => c.name));
+    const newCondition = (0, assistantNlp_1.extractCondition)(message);
+    const { minPrice: newMinPrice, maxPrice: newMaxPrice } = (0, assistantNlp_1.extractPriceRange)(message);
     const cheap = (0, assistantNlp_1.wantsCheap)(message);
     const premium = (0, assistantNlp_1.wantsPremium)(message);
+    const bareFollowUp = (0, assistantNlp_1.isBareFollowUp)(message);
+    // Merge: whatever this message explicitly mentions wins; anything it
+    // doesn't carries forward from the previous turn — this is what lets
+    // "iPhones under 100k" followed by "cheaper ones?" or "what about used"
+    // work as a refinement instead of a brand-new, context-free search.
+    const matchedBrands = newBrandMatches.length ? newBrandMatches : effectivePrevContext.brands ?? [];
+    const matchedCategories = newCategoryMatches.length ? newCategoryMatches : effectivePrevContext.categories ?? [];
+    const condition = newCondition ?? effectivePrevContext.condition;
+    const minPrice = newMinPrice ?? effectivePrevContext.minPrice;
+    const maxPrice = newMaxPrice ?? effectivePrevContext.maxPrice;
+    const nextContext = { brands: matchedBrands, categories: matchedCategories, condition, minPrice, maxPrice };
     // --- Comparison: "compare X vs Y", "X or Y", "difference between X and Y" ---
     if ((0, assistantNlp_1.isComparisonQuery)(message)) {
         const phrases = (0, assistantNlp_1.splitComparisonPhrases)(message);
@@ -96,16 +173,24 @@ router.post("/chat", rateLimit_1.assistantLimiter, (0, validate_1.validateBody)(
         if (resolved.length >= 2) {
             const items = resolved.map(toChatProduct);
             res.json({
-                reply: `Here's how ${items.map((i) => i.title).join(" and ")} compare:`,
+                reply: (0, assistantNlp_1.pick)(COMPARE_INTROS)(items.map((i) => i.title).join(" and ")),
                 products: items,
                 recommendation: buildRecommendation(items),
+                context: nextContext,
             });
             return;
         }
         // Couldn't resolve two real products from the phrasing — fall through to a normal search.
     }
-    // --- A specific, named product ("is the iPhone 13 available?") when no broad filter was detected ---
-    if (!matchedBrands.length && !matchedCategories.length && minPrice == null && maxPrice == null && message.length > 2) {
+    // --- A specific, named product ("is the iPhone 13 available?") — only when
+    // THIS message alone looks like a product name, not a filter query or a
+    // bare "yes"/"more" continuation of the previous turn. ---
+    if (!bareFollowUp &&
+        !newBrandMatches.length &&
+        !newCategoryMatches.length &&
+        newMinPrice == null &&
+        newMaxPrice == null &&
+        message.length > 2) {
         const found = await prisma_1.prisma.product.findFirst({
             where: { title: { contains: message } },
             select: ASSISTANT_PRODUCT_SELECT,
@@ -120,17 +205,18 @@ router.post("/chat", rateLimit_1.assistantLimiter, (0, validate_1.validateBody)(
                     take: 4,
                 });
                 res.json({
-                    reply: `${item.title} is currently ${item.status === "SOLD" ? "sold out" : "unavailable"}. Here are similar options in stock:`,
+                    reply: (0, assistantNlp_1.pick)(SOLDOUT_INTROS)(item.title, item.status === "SOLD" ? "sold out" : "unavailable"),
                     products: alternatives.map(toChatProduct),
                     unavailableProduct: item,
+                    context: nextContext,
                 });
                 return;
             }
-            res.json({ reply: `Here's what I found for "${found.title}":`, products: [item] });
+            res.json({ reply: `Here's what I found for "${found.title}":`, products: [item], context: nextContext });
             return;
         }
     }
-    // --- General filtered search ---
+    // --- General filtered search, using the merged (new + carried-forward) filters ---
     const where = { status: { in: ["AVAILABLE", "RESERVED"] } };
     if (matchedBrands.length)
         where.brand = { name: { in: matchedBrands } };
@@ -155,7 +241,7 @@ router.post("/chat", rateLimit_1.assistantLimiter, (0, validate_1.validateBody)(
             orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
             take: 4,
         });
-        reply = "I couldn't find anything matching that exactly, but here are some popular picks currently in stock:";
+        reply = (0, assistantNlp_1.pick)(NO_RESULTS_INTROS);
     }
     else {
         const bits = [];
@@ -171,8 +257,8 @@ router.post("/chat", rateLimit_1.assistantLimiter, (0, validate_1.validateBody)(
             bits.push(`under ${formatPKR(maxPrice)}`);
         else if (minPrice != null)
             bits.push(`above ${formatPKR(minPrice)}`);
-        reply = `I found ${matches.length} ${matches.length === 1 ? "product" : "products"}${bits.length ? ` matching ${bits.join(", ")}` : ""} currently in stock:`;
+        reply = (0, assistantNlp_1.pick)(RESULT_INTROS)(matches.length, bits.length ? ` matching ${bits.join(", ")}` : "");
     }
-    res.json({ reply, products: matches.map(toChatProduct) });
+    res.json({ reply, products: matches.map(toChatProduct), context: nextContext });
 }));
 exports.default = router;
