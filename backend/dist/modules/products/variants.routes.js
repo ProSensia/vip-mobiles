@@ -7,7 +7,10 @@ const errorHandler_1 = require("../../middleware/errorHandler");
 const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
 const audit_1 = require("../../utils/audit");
+const notifications_1 = require("../../utils/notifications");
 const shared_1 = require("../../shared");
+// Matches the storefront's LOW_STOCK badge threshold (frontend/src/components/storefront/ProductBadges.tsx).
+const LOW_STOCK_THRESHOLD = 3;
 const router = (0, express_1.Router)({ mergeParams: true });
 const variantSchema = zod_1.z.object({
     colorId: zod_1.z.string().optional().nullable(),
@@ -43,6 +46,17 @@ router.patch("/:variantId", auth_1.authenticate, (0, auth_1.requirePermission)(s
         data: req.body,
     });
     (0, audit_1.recordAudit)(req, { action: "variant.updated", entityType: "ProductVariant", entityId: variant.id });
+    if (req.body.stockQty !== undefined && req.body.stockQty > 0 && req.body.stockQty <= LOW_STOCK_THRESHOLD) {
+        const product = await prisma_1.prisma.product.findUnique({ where: { id: req.params.id }, select: { title: true } });
+        if (product) {
+            (0, notifications_1.notifyUsersWithPermission)(shared_1.PERMISSIONS.PRODUCTS_MANAGE_STOCK, {
+                type: "LOW_STOCK",
+                title: "Low Stock Alert",
+                message: `${product.title} is down to ${req.body.stockQty} left`,
+                link: `/admin/products/${req.params.id}`,
+            });
+        }
+    }
     res.json({ variant });
 }));
 router.delete("/:variantId", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_EDIT), (0, errorHandler_1.asyncHandler)(async (req, res) => {

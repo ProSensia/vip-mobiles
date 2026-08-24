@@ -41,3 +41,18 @@ const CONDITION_LABEL: Record<string, string> = {
 export function ConditionBadge({ condition }: { condition: string }) {
   return <Badge tone="blue">{CONDITION_LABEL[condition] ?? condition}</Badge>;
 }
+
+const BUY_REQUEST_STATUS_TONE: Record<string, BadgeTone> = {
+  NEW: "blue",
+  ASSIGNED: "amber",
+  CONTACTED: "amber",
+  ACCEPTED: "green",
+  REJECTED: "red",
+  CANCELLED: "gray",
+  CLOSED: "gray",
+};
+
+export function BuyRequestStatusBadge({ status }: { status: string }) {
+  const label = status.charAt(0) + status.slice(1).toLowerCase();
+  return <Badge tone={BUY_REQUEST_STATUS_TONE[status] ?? "gray"}>{label}</Badge>;
+}

@@ -1,12 +1,15 @@
 "use client";
 
+import { Suspense, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { toast } from "sonner";
+import { Eye } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { DataTable, type Column } from "@/components/admin/DataTable";
-import { Select } from "@/components/ui/Input";
+import { BuyRequestDetailModal } from "@/components/admin/BuyRequestDetailModal";
+import { Button } from "@/components/ui/Button";
+import { BuyRequestStatusBadge } from "@/components/ui/Badge";
 import { useFetch } from "@/lib/useFetch";
-import { clientApi, ClientApiError } from "@/lib/clientApi";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface BuyRequest {
@@ -17,18 +20,25 @@ interface BuyRequest {
   status: string;
   createdAt: string;
   product: { title: string; slug: string; basePrice: string };
+  assignedTo?: { id: string; name: string; role: string } | null;
 }
 
-export default function PortalBuyRequestsPage() {
+function PortalBuyRequestsInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { data, loading, refetch } = useFetch<{ requests: BuyRequest[] }>("/buy-requests");
+  const { data: meData } = useFetch<{ user: any }>("/auth/me");
+  const [openId, setOpenId] = useState<string | null>(searchParams.get("id"));
 
-  async function updateStatus(id: string, status: string) {
-    try {
-      await clientApi.patch(`/buy-requests/${id}`, { status });
-      refetch();
-    } catch (err) {
-      toast.error(err instanceof ClientApiError ? err.message : "You don't have permission to update this");
-    }
+  const canRefer = Boolean(meData?.user?.permissions?.includes("buyRequests.refer"));
+
+  function openDetail(id: string) {
+    setOpenId(id);
+    router.replace(`/portal/buy-requests?id=${id}`, { scroll: false });
+  }
+  function closeDetail() {
+    setOpenId(null);
+    router.replace("/portal/buy-requests", { scroll: false });
   }
 
   const columns: Column<BuyRequest>[] = [
@@ -39,20 +49,34 @@ export default function PortalBuyRequestsPage() {
       <Link href={`/product/${r.product.slug}`} target="_blank" className="text-gold-400 hover:underline">{r.product.title}</Link>
     ) },
     { key: "price", header: "Listed / Offer", render: (r) => `${formatCurrency(r.product.basePrice)}${r.offeredPrice ? ` / ${formatCurrency(r.offeredPrice)}` : ""}` },
+    { key: "assignedTo", header: "Assigned To", render: (r) => (
+      <span className={r.assignedTo ? "text-cream/90" : "text-muted"}>{r.assignedTo?.name ?? "Unassigned"}</span>
+    ) },
     { key: "date", header: "Date", render: (r) => formatDate(r.createdAt) },
-    { key: "status", header: "Status", render: (r) => (
-      <Select value={r.status} onChange={(e) => updateStatus(r.id, e.target.value)} className="h-8 w-32 text-xs">
-        <option value="NEW">New</option>
-        <option value="CONTACTED">Contacted</option>
-        <option value="CLOSED">Closed</option>
-      </Select>
+    { key: "status", header: "Status", render: (r) => <BuyRequestStatusBadge status={r.status} /> },
+    { key: "actions", header: "", render: (r) => (
+      <Button size="sm" variant="ghost" onClick={() => openDetail(r.id)}>
+        <Eye className="h-4 w-4" /> View
+      </Button>
     ) },
   ];
 
   return (
     <div>
-      <PageHeader title="Buy Requests" description="Customer purchase inquiries." />
+      <PageHeader title="Buy Requests" description="Customer purchase inquiries — unassigned requests and anything referred to you." />
       <DataTable columns={columns} rows={data?.requests ?? []} loading={loading} emptyTitle="No buy requests yet" />
+
+      {openId && (
+        <BuyRequestDetailModal requestId={openId} canRefer={canRefer} onClose={closeDetail} onChanged={refetch} />
+      )}
     </div>
+  );
+}
+
+export default function PortalBuyRequestsPage() {
+  return (
+    <Suspense>
+      <PortalBuyRequestsInner />
+    </Suspense>
   );
 }

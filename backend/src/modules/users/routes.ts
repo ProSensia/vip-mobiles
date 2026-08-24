@@ -9,6 +9,7 @@ import { hashPassword } from "../../utils/password";
 import { hashToken } from "../../utils/jwt";
 import { sendMail } from "../../lib/mailer";
 import { recordAudit } from "../../utils/audit";
+import { notifyUsersWithPermission } from "../../utils/notifications";
 import { PERMISSIONS, ROLES, effectivePermissions } from "../../shared";
 import { env } from "../../env";
 
@@ -95,6 +96,18 @@ router.post(
     });
 
     recordAudit(req, { action: "user.created", entityType: "User", entityId: user.id, meta: { role: user.role } });
+
+    notifyUsersWithPermission(
+      PERMISSIONS.STAFF_MANAGE,
+      {
+        type: "USER_CREATED",
+        title: "New Team Member",
+        message: `${user.name} was added as ${user.role.replace(/_/g, " ")}`,
+        link: `/admin/staff`,
+      },
+      req.user!.id
+    );
+
     res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   })
 );

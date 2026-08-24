@@ -5,7 +5,11 @@ import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { validateBody } from "../../middleware/validate";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import { recordAudit } from "../../utils/audit";
+import { notifyUsersWithPermission } from "../../utils/notifications";
 import { PERMISSIONS } from "../../shared";
+
+// Matches the storefront's LOW_STOCK badge threshold (frontend/src/components/storefront/ProductBadges.tsx).
+const LOW_STOCK_THRESHOLD = 3;
 
 const router = Router({ mergeParams: true });
 
@@ -57,6 +61,19 @@ router.patch(
       data: req.body,
     });
     recordAudit(req, { action: "variant.updated", entityType: "ProductVariant", entityId: variant.id });
+
+    if (req.body.stockQty !== undefined && req.body.stockQty > 0 && req.body.stockQty <= LOW_STOCK_THRESHOLD) {
+      const product = await prisma.product.findUnique({ where: { id: req.params.id }, select: { title: true } });
+      if (product) {
+        notifyUsersWithPermission(PERMISSIONS.PRODUCTS_MANAGE_STOCK, {
+          type: "LOW_STOCK",
+          title: "Low Stock Alert",
+          message: `${product.title} is down to ${req.body.stockQty} left`,
+          link: `/admin/products/${req.params.id}`,
+        });
+      }
+    }
+
     res.json({ variant });
   })
 );

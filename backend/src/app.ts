@@ -24,6 +24,7 @@ import settingsRoutes from "./modules/settings/routes";
 import auditRoutes from "./modules/audit/routes";
 import mediaRoutes from "./modules/media/routes";
 import systemRoutes from "./modules/system/routes";
+import notificationRoutes from "./modules/notifications/routes";
 
 export function createApp() {
   const app = express();
@@ -86,6 +87,7 @@ export function createApp() {
   app.use("/api/audit-logs", auditRoutes);
   app.use("/api/media", mediaRoutes);
   app.use("/api/system", systemRoutes);
+  app.use("/api/notifications", notificationRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

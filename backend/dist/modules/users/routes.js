@@ -14,6 +14,7 @@ const password_1 = require("../../utils/password");
 const jwt_1 = require("../../utils/jwt");
 const mailer_1 = require("../../lib/mailer");
 const audit_1 = require("../../utils/audit");
+const notifications_1 = require("../../utils/notifications");
 const shared_1 = require("../../shared");
 const env_1 = require("../../env");
 const router = (0, express_1.Router)();
@@ -83,6 +84,12 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE
         text: `Hi ${user.name},\n\nAn account has been created for you with the role "${user.role}".\nSet your password to get started (valid 72 hours):\n${setupUrl}`,
     });
     (0, audit_1.recordAudit)(req, { action: "user.created", entityType: "User", entityId: user.id, meta: { role: user.role } });
+    (0, notifications_1.notifyUsersWithPermission)(shared_1.PERMISSIONS.STAFF_MANAGE, {
+        type: "USER_CREATED",
+        title: "New Team Member",
+        message: `${user.name} was added as ${user.role.replace(/_/g, " ")}`,
+        link: `/admin/staff`,
+    }, req.user.id);
     res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 }));
 const updateUserSchema = zod_1.z.object({

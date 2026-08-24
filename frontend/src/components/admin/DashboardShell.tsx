@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clientApi } from "@/lib/clientApi";
+import { NotificationBell } from "./NotificationBell";
 import type { SessionUser } from "@/lib/session";
 
 // icon is a pre-rendered element (not a component reference) — the caller is
@@ -104,6 +105,7 @@ export function DashboardShell({
             <h1 className="font-display text-lg font-semibold text-cream">{title}</h1>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className="text-right">
               <p className="text-sm font-medium text-cream">{user.name}</p>
               <p className="text-xs text-muted">{user.role.replace(/_/g, " ")}</p>

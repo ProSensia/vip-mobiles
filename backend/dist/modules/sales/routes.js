@@ -7,6 +7,7 @@ const errorHandler_1 = require("../../middleware/errorHandler");
 const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
 const audit_1 = require("../../utils/audit");
+const notifications_1 = require("../../utils/notifications");
 const shared_1 = require("../../shared");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
@@ -54,6 +55,12 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.SALES_RECORD
             : []),
     ]);
     (0, audit_1.recordAudit)(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
+    (0, notifications_1.notifyUsersWithPermission)(shared_1.PERMISSIONS.SALES_ANALYTICS, {
+        type: "SALE_COMPLETED",
+        title: "Sale Completed",
+        message: `${product.title} sold for ${req.body.soldPrice}`,
+        link: `/admin/sales`,
+    }, req.user.id);
     res.status(201).json({ sale });
 }));
 const listQuerySchema = zod_1.z.object({

@@ -5,6 +5,7 @@ import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { validateBody } from "../../middleware/validate";
 import { authenticate, requirePermission } from "../../middleware/auth";
 import { recordAudit } from "../../utils/audit";
+import { notifyUsersWithPermission } from "../../utils/notifications";
 import { hasPermission, PERMISSIONS } from "../../shared";
 
 const router = Router();
@@ -63,6 +64,18 @@ router.post(
     ]);
 
     recordAudit(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
+
+    notifyUsersWithPermission(
+      PERMISSIONS.SALES_ANALYTICS,
+      {
+        type: "SALE_COMPLETED",
+        title: "Sale Completed",
+        message: `${product.title} sold for ${req.body.soldPrice}`,
+        link: `/admin/sales`,
+      },
+      req.user!.id
+    );
+
     res.status(201).json({ sale });
   })
 );

@@ -8,6 +8,7 @@ const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
 const rateLimit_1 = require("../../middleware/rateLimit");
 const audit_1 = require("../../utils/audit");
+const notifications_1 = require("../../utils/notifications");
 const shared_1 = require("../../shared");
 const router = (0, express_1.Router)({ mergeParams: true });
 const reviewSchema = zod_1.z.object({
@@ -19,6 +20,13 @@ const reviewSchema = zod_1.z.object({
 router.post("/submit", rateLimit_1.publicFormLimiter, (0, validate_1.validateBody)(reviewSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const review = await prisma_1.prisma.review.create({
         data: { ...req.body, productId: req.params.id, isApproved: false },
+    });
+    const product = await prisma_1.prisma.product.findUnique({ where: { id: req.params.id }, select: { title: true } });
+    (0, notifications_1.notifyUsersWithPermission)(shared_1.PERMISSIONS.PRODUCTS_MANAGE_REVIEWS, {
+        type: "REVIEW_SUBMITTED",
+        title: "New Review Awaiting Approval",
+        message: `${req.body.customerName} left a ${req.body.rating}★ review${product ? ` on ${product.title}` : ""}`,
+        link: `/admin/products/${req.params.id}`,
     });
     res.status(201).json({ review: { id: review.id }, message: "Thanks! Your review will appear after moderation." });
 }));

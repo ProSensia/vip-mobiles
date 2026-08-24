@@ -1,12 +1,15 @@
 "use client";
 
-import { toast } from "sonner";
+import { Suspense, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { DataTable, type Column } from "@/components/admin/DataTable";
-import { Select } from "@/components/ui/Input";
+import { BuyRequestDetailModal } from "@/components/admin/BuyRequestDetailModal";
+import { Button } from "@/components/ui/Button";
+import { BuyRequestStatusBadge } from "@/components/ui/Badge";
 import { useFetch } from "@/lib/useFetch";
-import { clientApi, ClientApiError } from "@/lib/clientApi";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 interface BuyRequest {
@@ -18,18 +21,25 @@ interface BuyRequest {
   status: string;
   createdAt: string;
   product: { id: string; title: string; slug: string; basePrice: string };
+  assignedTo?: { id: string; name: string; role: string } | null;
 }
 
-export default function BuyRequestsPage() {
+function BuyRequestsInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { data, loading, refetch } = useFetch<{ requests: BuyRequest[] }>("/buy-requests");
+  const { data: meData } = useFetch<{ user: any }>("/auth/me");
+  const [openId, setOpenId] = useState<string | null>(searchParams.get("id"));
 
-  async function updateStatus(id: string, status: string) {
-    try {
-      await clientApi.patch(`/buy-requests/${id}`, { status });
-      refetch();
-    } catch (err) {
-      toast.error(err instanceof ClientApiError ? err.message : "Could not update status");
-    }
+  const canRefer = Boolean(meData?.user?.permissions?.includes("buyRequests.refer"));
+
+  function openDetail(id: string) {
+    setOpenId(id);
+    router.replace(`/admin/buy-requests?id=${id}`, { scroll: false });
+  }
+  function closeDetail() {
+    setOpenId(null);
+    router.replace("/admin/buy-requests", { scroll: false });
   }
 
   const columns: Column<BuyRequest>[] = [
@@ -45,13 +55,15 @@ export default function BuyRequestsPage() {
     { key: "price", header: "Listed / Offer", render: (r) => (
       <span>{formatCurrency(r.product.basePrice)}{r.offeredPrice ? ` / ${formatCurrency(r.offeredPrice)}` : ""}</span>
     ) },
+    { key: "assignedTo", header: "Assigned To", render: (r) => (
+      <span className={r.assignedTo ? "text-cream/90" : "text-muted"}>{r.assignedTo?.name ?? "Unassigned"}</span>
+    ) },
     { key: "date", header: "Date", render: (r) => formatDate(r.createdAt) },
-    { key: "status", header: "Status", render: (r) => (
-      <Select value={r.status} onChange={(e) => updateStatus(r.id, e.target.value)} className="h-8 w-32 text-xs">
-        <option value="NEW">New</option>
-        <option value="CONTACTED">Contacted</option>
-        <option value="CLOSED">Closed</option>
-      </Select>
+    { key: "status", header: "Status", render: (r) => <BuyRequestStatusBadge status={r.status} /> },
+    { key: "actions", header: "", render: (r) => (
+      <Button size="sm" variant="ghost" onClick={() => openDetail(r.id)}>
+        <Eye className="h-4 w-4" /> View
+      </Button>
     ) },
   ];
 
@@ -59,6 +71,23 @@ export default function BuyRequestsPage() {
     <div>
       <PageHeader title="Buy Requests" description="Customer purchase inquiries submitted from product pages." />
       <DataTable columns={columns} rows={data?.requests ?? []} loading={loading} emptyTitle="No buy requests yet" emptyDescription="Requests submitted from your product pages will show up here." />
+
+      {openId && (
+        <BuyRequestDetailModal
+          requestId={openId}
+          canRefer={canRefer}
+          onClose={closeDetail}
+          onChanged={refetch}
+        />
+      )}
     </div>
+  );
+}
+
+export default function BuyRequestsPage() {
+  return (
+    <Suspense>
+      <BuyRequestsInner />
+    </Suspense>
   );
 }

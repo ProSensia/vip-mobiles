@@ -62,8 +62,23 @@ enum BannerPlacement {
 
 enum BuyRequestStatus {
   NEW
+  ASSIGNED
   CONTACTED
+  ACCEPTED
+  REJECTED
+  CANCELLED
   CLOSED
+}
+
+enum NotificationType {
+  BUY_REQUEST_NEW
+  BUY_REQUEST_REFERRED
+  BUY_REQUEST_STATUS_CHANGED
+  SALE_COMPLETED
+  LOW_STOCK
+  REVIEW_SUBMITTED
+  USER_CREATED
+  SYSTEM
 }
 
 enum SocialPlatform {
@@ -88,18 +103,25 @@ model User {
   avatarUrl    String?
   branchId     String?
   lastLoginAt  DateTime?
+  // Per-user opt-out for non-critical notification types, e.g.
+  // { "BUY_REQUEST_NEW": false } — absent/true means enabled. Critical
+  // types (referrals directly assigned to this user, system notices)
+  // ignore this and are always created.
+  notificationPrefs Json?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  branch            Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  staffProfile      StaffProfile?
-  createdProducts   Product[]           @relation("ProductCreatedBy")
-  sales             Sale[]              @relation("SaleStaff")
-  socialCreatives   SocialCreative[]
-  auditLogs         AuditLog[]
-  refreshTokens     RefreshToken[]
-  passwordResets    PasswordResetToken[]
-  buyRequestUpdates BuyRequest[]        @relation("BuyRequestHandledBy")
+  branch              Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  staffProfile        StaffProfile?
+  createdProducts     Product[]           @relation("ProductCreatedBy")
+  sales               Sale[]              @relation("SaleStaff")
+  socialCreatives     SocialCreative[]
+  auditLogs           AuditLog[]
+  refreshTokens       RefreshToken[]
+  passwordResets      PasswordResetToken[]
+  buyRequestUpdates   BuyRequest[]        @relation("BuyRequestHandledBy")
+  assignedBuyRequests BuyRequest[]        @relation("BuyRequestAssignedTo")
+  notifications       Notification[]
 
   @@index([role])
   @@index([branchId])
@@ -427,14 +449,17 @@ model BuyRequest {
   message       String?           @db.Text
   status        BuyRequestStatus  @default(NEW)
   handledById   String?
+  assignedToId  String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  handledBy User?   @relation("BuyRequestHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  handledBy  User?   @relation("BuyRequestHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  assignedTo User?   @relation("BuyRequestAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([status])
+  @@index([assignedToId])
 }
 
 model Sale {
@@ -508,4 +533,22 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  message   String           @db.VarChar(500)
+  link      String?          @db.VarChar(300)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Unread-count and inbox-list are the two hot paths (checked on every
+  // admin page load / polled), both scoped to one user — index both.
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
