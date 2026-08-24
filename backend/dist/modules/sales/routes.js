@@ -53,7 +53,7 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.SALES_RECORD
             ? [prisma_1.prisma.productVariant.update({ where: { id: req.body.variantId }, data: { status: "SOLD" } })]
             : []),
     ]);
-    await (0, audit_1.recordAudit)(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
+    (0, audit_1.recordAudit)(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
     res.status(201).json({ sale });
 }));
 const listQuerySchema = zod_1.z.object({

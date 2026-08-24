@@ -48,13 +48,13 @@ router.post("/login", rateLimit_1.authLimiter, (0, validate_1.validateBody)(logi
     }
     const valid = await (0, password_1.verifyPassword)(password, user.passwordHash);
     if (!valid) {
-        await (0, audit_1.recordAudit)(req, { action: "auth.login.failed", entityType: "User", entityId: user.id });
+        (0, audit_1.recordAudit)(req, { action: "auth.login.failed", entityType: "User", entityId: user.id });
         throw new errorHandler_1.ApiError(401, "Invalid email or password");
     }
     await issueSession(res, user.id, user.role, user.permissions);
     await prisma_1.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     req.user = { id: user.id, role: user.role, permissions: user.permissions };
-    await (0, audit_1.recordAudit)(req, { action: "auth.login.success", entityType: "User", entityId: user.id });
+    (0, audit_1.recordAudit)(req, { action: "auth.login.success", entityType: "User", entityId: user.id });
     res.json({
         user: {
             id: user.id,
@@ -128,7 +128,7 @@ router.post("/forgot-password", rateLimit_1.authLimiter, (0, validate_1.validate
             subject: "Reset your VIP Mobiles admin password",
             text: `Hi ${user.name},\n\nReset your password using this link (valid 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
         });
-        await (0, audit_1.recordAudit)(req, { action: "auth.password.forgot", entityType: "User", entityId: user.id });
+        (0, audit_1.recordAudit)(req, { action: "auth.password.forgot", entityType: "User", entityId: user.id });
     }
     res.json({ ok: true, message: "If that email is registered, a reset link has been sent." });
 }));
@@ -153,7 +153,7 @@ router.post("/reset-password", rateLimit_1.authLimiter, (0, validate_1.validateB
             data: { revokedAt: new Date() },
         }),
     ]);
-    await (0, audit_1.recordAudit)(req, { action: "auth.password.reset", entityType: "User", entityId: record.userId });
+    (0, audit_1.recordAudit)(req, { action: "auth.password.reset", entityType: "User", entityId: record.userId });
     res.json({ ok: true });
 }));
 const changePasswordSchema = zod_1.z.object({
@@ -169,7 +169,7 @@ router.post("/change-password", auth_1.authenticate, (0, validate_1.validateBody
         throw new errorHandler_1.ApiError(400, "Current password is incorrect");
     const passwordHash = await (0, password_1.hashPassword)(req.body.newPassword);
     await prisma_1.prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
-    await (0, audit_1.recordAudit)(req, { action: "auth.password.changed", entityType: "User", entityId: user.id });
+    (0, audit_1.recordAudit)(req, { action: "auth.password.changed", entityType: "User", entityId: user.id });
     res.json({ ok: true });
 }));
 exports.default = router;

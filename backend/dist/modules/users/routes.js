@@ -82,7 +82,7 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE
         subject: "You've been added to the VIP Mobiles dashboard",
         text: `Hi ${user.name},\n\nAn account has been created for you with the role "${user.role}".\nSet your password to get started (valid 72 hours):\n${setupUrl}`,
     });
-    await (0, audit_1.recordAudit)(req, { action: "user.created", entityType: "User", entityId: user.id, meta: { role: user.role } });
+    (0, audit_1.recordAudit)(req, { action: "user.created", entityType: "User", entityId: user.id, meta: { role: user.role } });
     res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 }));
 const updateUserSchema = zod_1.z.object({
@@ -123,7 +123,7 @@ router.patch("/:id", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MA
                 : undefined,
         },
     });
-    await (0, audit_1.recordAudit)(req, { action: "user.updated", entityType: "User", entityId: updated.id, meta: body });
+    (0, audit_1.recordAudit)(req, { action: "user.updated", entityType: "User", entityId: updated.id, meta: body });
     res.json({
         user: {
             id: updated.id,
@@ -141,7 +141,7 @@ router.delete("/:id", auth_1.requireSuperAdmin, (0, errorHandler_1.asyncHandler)
     if (target.id === req.user.id)
         throw new errorHandler_1.ApiError(400, "You cannot delete your own account");
     await prisma_1.prisma.user.delete({ where: { id: target.id } });
-    await (0, audit_1.recordAudit)(req, { action: "user.deleted", entityType: "User", entityId: target.id });
+    (0, audit_1.recordAudit)(req, { action: "user.deleted", entityType: "User", entityId: target.id });
     res.json({ ok: true });
 }));
 exports.default = router;

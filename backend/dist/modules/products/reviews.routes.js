@@ -27,7 +27,7 @@ router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PER
     const review = await prisma_1.prisma.review.create({
         data: { ...req.body, productId: req.params.id, isApproved: true },
     });
-    await (0, audit_1.recordAudit)(req, { action: "review.created", entityType: "Review", entityId: review.id });
+    (0, audit_1.recordAudit)(req, { action: "review.created", entityType: "Review", entityId: review.id });
     res.status(201).json({ review });
 }));
 router.get("/pending", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_MANAGE_REVIEWS), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -39,12 +39,12 @@ router.get("/pending", auth_1.authenticate, (0, auth_1.requirePermission)(shared
 }));
 router.patch("/:reviewId/approve", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_MANAGE_REVIEWS), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const review = await prisma_1.prisma.review.update({ where: { id: req.params.reviewId }, data: { isApproved: true } });
-    await (0, audit_1.recordAudit)(req, { action: "review.approved", entityType: "Review", entityId: review.id });
+    (0, audit_1.recordAudit)(req, { action: "review.approved", entityType: "Review", entityId: review.id });
     res.json({ review });
 }));
 router.delete("/:reviewId", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_MANAGE_REVIEWS), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     await prisma_1.prisma.review.delete({ where: { id: req.params.reviewId } });
-    await (0, audit_1.recordAudit)(req, { action: "review.deleted", entityType: "Review", entityId: req.params.reviewId });
+    (0, audit_1.recordAudit)(req, { action: "review.deleted", entityType: "Review", entityId: req.params.reviewId });
     res.json({ ok: true });
 }));
 exports.default = router;

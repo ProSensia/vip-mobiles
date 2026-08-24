@@ -28,7 +28,7 @@ router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PER
         await prisma_1.prisma.productVariant.updateMany({ where: { productId }, data: { isDefault: false } });
     }
     const variant = await prisma_1.prisma.productVariant.create({ data: { ...req.body, productId } });
-    await (0, audit_1.recordAudit)(req, { action: "variant.created", entityType: "ProductVariant", entityId: variant.id });
+    (0, audit_1.recordAudit)(req, { action: "variant.created", entityType: "ProductVariant", entityId: variant.id });
     res.status(201).json({ variant });
 }));
 router.patch("/:variantId", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_EDIT), (0, validate_1.validateBody)(variantSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -42,12 +42,12 @@ router.patch("/:variantId", auth_1.authenticate, (0, auth_1.requirePermission)(s
         where: { id: req.params.variantId },
         data: req.body,
     });
-    await (0, audit_1.recordAudit)(req, { action: "variant.updated", entityType: "ProductVariant", entityId: variant.id });
+    (0, audit_1.recordAudit)(req, { action: "variant.updated", entityType: "ProductVariant", entityId: variant.id });
     res.json({ variant });
 }));
 router.delete("/:variantId", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_EDIT), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     await prisma_1.prisma.productVariant.delete({ where: { id: req.params.variantId } });
-    await (0, audit_1.recordAudit)(req, { action: "variant.deleted", entityType: "ProductVariant", entityId: req.params.variantId });
+    (0, audit_1.recordAudit)(req, { action: "variant.deleted", entityType: "ProductVariant", entityId: req.params.variantId });
     res.json({ ok: true });
 }));
 exports.default = router;

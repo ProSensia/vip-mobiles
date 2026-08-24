@@ -36,7 +36,7 @@ const brandSchema = zod_1.z.object({
 router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_BRANDS), (0, validate_1.validateBody)(brandSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const slug = (0, shared_1.slugify)(req.body.name);
     const brand = await prisma_1.prisma.brand.create({ data: { ...req.body, slug } });
-    await (0, audit_1.recordAudit)(req, { action: "brand.created", entityType: "Brand", entityId: brand.id });
+    (0, audit_1.recordAudit)(req, { action: "brand.created", entityType: "Brand", entityId: brand.id });
     res.status(201).json({ brand });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_BRANDS), (0, validate_1.validateBody)(brandSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -44,7 +44,7 @@ router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1
     if (req.body.name)
         data.slug = (0, shared_1.slugify)(req.body.name);
     const brand = await prisma_1.prisma.brand.update({ where: { id: req.params.id }, data });
-    await (0, audit_1.recordAudit)(req, { action: "brand.updated", entityType: "Brand", entityId: brand.id });
+    (0, audit_1.recordAudit)(req, { action: "brand.updated", entityType: "Brand", entityId: brand.id });
     res.json({ brand });
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_BRANDS), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -52,7 +52,7 @@ router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_
     if (count > 0)
         throw new errorHandler_1.ApiError(400, "Cannot delete a brand that still has products. Reassign or remove them first.");
     await prisma_1.prisma.brand.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "brand.deleted", entityType: "Brand", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "brand.deleted", entityType: "Brand", entityId: req.params.id });
     res.json({ ok: true });
 }));
 exports.default = router;

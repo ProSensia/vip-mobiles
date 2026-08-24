@@ -288,6 +288,7 @@ model ProductImage {
   productId String
   url       String
   webpUrl   String?
+  mediumUrl String?
   avifUrl   String?
   thumbUrl  String?
   width     Int?

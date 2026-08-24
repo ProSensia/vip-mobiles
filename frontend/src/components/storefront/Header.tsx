@@ -1,13 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { MessageCircle } from "lucide-react";
-import { publicApiSafe } from "@/lib/api";
+import { getSiteSettings } from "@/lib/settings";
 import { MobileNav } from "./MobileNav";
 import { NAV_LINKS } from "./navLinks";
 
 export async function Header() {
-  const data = await publicApiSafe<{ settings: any }>("/api/settings");
-  const settings = data?.settings;
+  const settings = await getSiteSettings();
   const logoUrl = settings?.logoUrl || "/brand/logo.jpg";
   const whatsapp = (settings?.whatsappNumber || "").replace(/[^\d]/g, "");
 

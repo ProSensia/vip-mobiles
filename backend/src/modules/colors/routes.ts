@@ -29,7 +29,7 @@ router.post(
   validateBody(colorSchema),
   asyncHandler(async (req, res) => {
     const color = await prisma.color.create({ data: req.body });
-    await recordAudit(req, { action: "color.created", entityType: "Color", entityId: color.id });
+    recordAudit(req, { action: "color.created", entityType: "Color", entityId: color.id });
     res.status(201).json({ color });
   })
 );
@@ -41,7 +41,7 @@ router.patch(
   validateBody(colorSchema.partial()),
   asyncHandler(async (req, res) => {
     const color = await prisma.color.update({ where: { id: req.params.id }, data: req.body });
-    await recordAudit(req, { action: "color.updated", entityType: "Color", entityId: color.id });
+    recordAudit(req, { action: "color.updated", entityType: "Color", entityId: color.id });
     res.json({ color });
   })
 );
@@ -54,7 +54,7 @@ router.delete(
     const usage = await prisma.productVariant.count({ where: { colorId: req.params.id } });
     if (usage > 0) throw new ApiError(400, "Cannot delete a color still used by product variants.");
     await prisma.color.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "color.deleted", entityType: "Color", entityId: req.params.id });
+    recordAudit(req, { action: "color.deleted", entityType: "Color", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

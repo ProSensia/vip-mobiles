@@ -30,7 +30,7 @@ router.post(
     const video = await prisma.productVideo.create({
       data: { productId, platform, url: req.body.url, embedId, caption: req.body.caption, sortOrder: count },
     });
-    await recordAudit(req, { action: "video.created", entityType: "ProductVideo", entityId: video.id });
+    recordAudit(req, { action: "video.created", entityType: "ProductVideo", entityId: video.id });
     res.status(201).json({ video });
   })
 );
@@ -41,7 +41,7 @@ router.delete(
   requirePermission(PERMISSIONS.PRODUCTS_EDIT),
   asyncHandler(async (req, res) => {
     await prisma.productVideo.delete({ where: { id: req.params.videoId } });
-    await recordAudit(req, { action: "video.deleted", entityType: "ProductVideo", entityId: req.params.videoId });
+    recordAudit(req, { action: "video.deleted", entityType: "ProductVideo", entityId: req.params.videoId });
     res.json({ ok: true });
   })
 );

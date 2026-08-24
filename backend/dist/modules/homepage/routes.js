@@ -38,12 +38,12 @@ router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PER
     const section = await prisma_1.prisma.homepageSection.create({
         data: { ...req.body, sortOrder: req.body.sortOrder ?? count },
     });
-    await (0, audit_1.recordAudit)(req, { action: "homepage.section.created", entityType: "HomepageSection", entityId: section.id });
+    (0, audit_1.recordAudit)(req, { action: "homepage.section.created", entityType: "HomepageSection", entityId: section.id });
     res.status(201).json({ section });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CONTENT_HOMEPAGE), (0, validate_1.validateBody)(sectionSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const section = await prisma_1.prisma.homepageSection.update({ where: { id: req.params.id }, data: req.body });
-    await (0, audit_1.recordAudit)(req, { action: "homepage.section.updated", entityType: "HomepageSection", entityId: section.id });
+    (0, audit_1.recordAudit)(req, { action: "homepage.section.updated", entityType: "HomepageSection", entityId: section.id });
     res.json({ section });
 }));
 const reorderSchema = zod_1.z.object({ order: zod_1.z.array(zod_1.z.string()).min(1) });
@@ -53,7 +53,7 @@ router.patch("/reorder", auth_1.authenticate, (0, auth_1.requirePermission)(shar
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CONTENT_HOMEPAGE), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     await prisma_1.prisma.homepageSection.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "homepage.section.deleted", entityType: "HomepageSection", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "homepage.section.deleted", entityType: "HomepageSection", entityId: req.params.id });
     res.json({ ok: true });
 }));
 exports.default = router;

@@ -14,7 +14,7 @@ export interface ProductCardData {
   boxAvailable: boolean;
   brand?: { name: string } | null;
   category?: { name: string } | null;
-  images: Array<{ webpUrl?: string | null; url: string; thumbUrl?: string | null }>;
+  images: Array<{ mediumUrl?: string | null; webpUrl?: string | null; url: string; thumbUrl?: string | null }>;
 }
 
 export function ProductCard({ product }: { product: ProductCardData }) {
@@ -30,7 +30,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
       <div className="relative aspect-square overflow-hidden bg-ink-900">
         {image ? (
           <Image
-            src={image.webpUrl || image.url}
+            src={image.mediumUrl || image.webpUrl || image.url}
             alt={product.title}
             fill
             loading="lazy"

@@ -53,7 +53,7 @@ export default function PortalProductsPage() {
           {data!.items.map((p) => (
             <div key={p.id} className="overflow-hidden rounded-xl2 border border-ink-600 bg-ink-800/60">
               <div className="relative aspect-square bg-ink-900">
-                {p.images[0] && <Image src={p.images[0].webpUrl || p.images[0].url} alt={p.title} fill className="object-cover" />}
+                {p.images[0] && <Image src={p.images[0].mediumUrl || p.images[0].webpUrl || p.images[0].url} alt={p.title} fill className="object-cover" />}
               </div>
               <div className="p-3">
                 <p className="line-clamp-1 text-sm font-medium text-cream">{p.title}</p>

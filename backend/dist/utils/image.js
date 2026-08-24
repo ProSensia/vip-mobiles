@@ -38,15 +38,20 @@ async function normalizeInput(buffer) {
 }
 const SIZES = {
     large: 1600, // main gallery / product page
-    medium: 800, // catalog cards
+    medium: 800, // catalog / listing cards
     thumb: 320, // thumbnails / variant swatch previews
 };
 const WEBP_QUALITY = 82;
-const AVIF_QUALITY = 60; // AVIF achieves similar visual quality at a lower quality setting
 /**
  * Validates the buffer is a real, decodable image (protects against spoofed
- * mime types / malicious payloads) and produces WebP + AVIF renditions at
- * several responsive widths, all under one content-addressed folder.
+ * mime types / malicious payloads) and produces WebP renditions at several
+ * responsive widths, all under one content-addressed folder.
+ *
+ * Previously this also encoded an AVIF rendition, but nothing in the
+ * frontend ever reads avifUrl — it was pure wasted CPU on the single most
+ * expensive encode step (AV1 encoding is far slower than WebP), which is
+ * why bulk image uploads could take minutes. Dropped until something
+ * actually consumes it.
  */
 async function processProductImage(buffer, folder) {
     buffer = await normalizeInput(buffer);
@@ -64,41 +69,30 @@ async function processProductImage(buffer, folder) {
         throw new errorHandler_1.ApiError(400, "Unsupported image format");
     }
     const id = (0, nanoid_1.nanoid)(12);
-    const base = (0, sharp_1.default)(buffer).rotate(); // auto-orient using EXIF, then strip metadata on output
+    // Auto-orient using EXIF, then force sRGB before resizing/encoding — some
+    // phone and DSLR photos embed a wide-gamut or CMYK profile, and letting
+    // that ride through to WebP output renders badly shifted, or in some
+    // cases near-black, in browsers/decoders that don't fully honor the
+    // embedded profile.
+    const base = (0, sharp_1.default)(buffer).rotate().toColorspace("srgb");
     const largeWidth = Math.min(SIZES.large, metadata.width);
-    const [largeWebp, largeAvif, mediumWebp, thumbWebp] = await Promise.all([
-        base
-            .clone()
-            .resize({ width: largeWidth, withoutEnlargement: true })
-            .webp({ quality: WEBP_QUALITY })
-            .toBuffer(),
-        base
-            .clone()
-            .resize({ width: largeWidth, withoutEnlargement: true })
-            .avif({ quality: AVIF_QUALITY })
-            .toBuffer(),
-        base
-            .clone()
-            .resize({ width: Math.min(SIZES.medium, metadata.width), withoutEnlargement: true })
-            .webp({ quality: WEBP_QUALITY })
-            .toBuffer(),
-        base
-            .clone()
-            .resize({ width: Math.min(SIZES.thumb, metadata.width), withoutEnlargement: true })
-            .webp({ quality: WEBP_QUALITY })
-            .toBuffer(),
+    const mediumWidth = Math.min(SIZES.medium, metadata.width);
+    const thumbWidth = Math.min(SIZES.thumb, metadata.width);
+    const [largeWebp, mediumWebp, thumbWebp] = await Promise.all([
+        base.clone().resize({ width: largeWidth, withoutEnlargement: true }).webp({ quality: WEBP_QUALITY }).toBuffer(),
+        base.clone().resize({ width: mediumWidth, withoutEnlargement: true }).webp({ quality: WEBP_QUALITY }).toBuffer(),
+        base.clone().resize({ width: thumbWidth, withoutEnlargement: true }).webp({ quality: WEBP_QUALITY }).toBuffer(),
     ]);
-    const [webpUrl, avifUrl] = await Promise.all([
+    const [webpUrl, mediumUrl, thumbUrl] = await Promise.all([
         storage_1.storage.save(`${folder}/${id}-large.webp`, largeWebp),
-        storage_1.storage.save(`${folder}/${id}-large.avif`, largeAvif),
+        storage_1.storage.save(`${folder}/${id}-medium.webp`, mediumWebp),
+        storage_1.storage.save(`${folder}/${id}-thumb.webp`, thumbWebp),
     ]);
-    await storage_1.storage.save(`${folder}/${id}-medium.webp`, mediumWebp);
-    const thumbUrl = await storage_1.storage.save(`${folder}/${id}-thumb.webp`, thumbWebp);
     return {
         id,
         url: webpUrl,
         webpUrl,
-        avifUrl,
+        mediumUrl,
         thumbUrl,
         width: largeWidth,
         height: Math.round((metadata.height / metadata.width) * largeWidth),
@@ -120,6 +114,7 @@ async function processGenericImage(buffer, folder, maxWidth = 1600) {
     const width = Math.min(maxWidth, metadata.width);
     const webp = await (0, sharp_1.default)(buffer)
         .rotate()
+        .toColorspace("srgb")
         .resize({ width, withoutEnlargement: true })
         .webp({ quality: WEBP_QUALITY })
         .toBuffer();

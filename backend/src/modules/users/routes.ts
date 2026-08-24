@@ -94,7 +94,7 @@ router.post(
       text: `Hi ${user.name},\n\nAn account has been created for you with the role "${user.role}".\nSet your password to get started (valid 72 hours):\n${setupUrl}`,
     });
 
-    await recordAudit(req, { action: "user.created", entityType: "User", entityId: user.id, meta: { role: user.role } });
+    recordAudit(req, { action: "user.created", entityType: "User", entityId: user.id, meta: { role: user.role } });
     res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   })
 );
@@ -147,7 +147,7 @@ router.patch(
       },
     });
 
-    await recordAudit(req, { action: "user.updated", entityType: "User", entityId: updated.id, meta: body });
+    recordAudit(req, { action: "user.updated", entityType: "User", entityId: updated.id, meta: body });
     res.json({
       user: {
         id: updated.id,
@@ -169,7 +169,7 @@ router.delete(
     if (target.id === req.user!.id) throw new ApiError(400, "You cannot delete your own account");
 
     await prisma.user.delete({ where: { id: target.id } });
-    await recordAudit(req, { action: "user.deleted", entityType: "User", entityId: target.id });
+    recordAudit(req, { action: "user.deleted", entityType: "User", entityId: target.id });
     res.json({ ok: true });
   })
 );

@@ -19,12 +19,12 @@ const colorSchema = zod_1.z.object({
 });
 router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_COLORS), (0, validate_1.validateBody)(colorSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const color = await prisma_1.prisma.color.create({ data: req.body });
-    await (0, audit_1.recordAudit)(req, { action: "color.created", entityType: "Color", entityId: color.id });
+    (0, audit_1.recordAudit)(req, { action: "color.created", entityType: "Color", entityId: color.id });
     res.status(201).json({ color });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_COLORS), (0, validate_1.validateBody)(colorSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const color = await prisma_1.prisma.color.update({ where: { id: req.params.id }, data: req.body });
-    await (0, audit_1.recordAudit)(req, { action: "color.updated", entityType: "Color", entityId: color.id });
+    (0, audit_1.recordAudit)(req, { action: "color.updated", entityType: "Color", entityId: color.id });
     res.json({ color });
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_COLORS), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -32,7 +32,7 @@ router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_
     if (usage > 0)
         throw new errorHandler_1.ApiError(400, "Cannot delete a color still used by product variants.");
     await prisma_1.prisma.color.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "color.deleted", entityType: "Color", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "color.deleted", entityType: "Color", entityId: req.params.id });
     res.json({ ok: true });
 }));
 exports.default = router;

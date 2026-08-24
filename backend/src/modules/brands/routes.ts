@@ -49,7 +49,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const slug = slugify(req.body.name);
     const brand = await prisma.brand.create({ data: { ...req.body, slug } });
-    await recordAudit(req, { action: "brand.created", entityType: "Brand", entityId: brand.id });
+    recordAudit(req, { action: "brand.created", entityType: "Brand", entityId: brand.id });
     res.status(201).json({ brand });
   })
 );
@@ -63,7 +63,7 @@ router.patch(
     const data: any = { ...req.body };
     if (req.body.name) data.slug = slugify(req.body.name);
     const brand = await prisma.brand.update({ where: { id: req.params.id }, data });
-    await recordAudit(req, { action: "brand.updated", entityType: "Brand", entityId: brand.id });
+    recordAudit(req, { action: "brand.updated", entityType: "Brand", entityId: brand.id });
     res.json({ brand });
   })
 );
@@ -76,7 +76,7 @@ router.delete(
     const count = await prisma.product.count({ where: { brandId: req.params.id } });
     if (count > 0) throw new ApiError(400, "Cannot delete a brand that still has products. Reassign or remove them first.");
     await prisma.brand.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "brand.deleted", entityType: "Brand", entityId: req.params.id });
+    recordAudit(req, { action: "brand.deleted", entityType: "Brand", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

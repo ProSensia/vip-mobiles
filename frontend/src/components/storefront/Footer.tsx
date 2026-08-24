@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Facebook, Instagram, Youtube } from "lucide-react";
 import { publicApiSafe } from "@/lib/api";
+import { getSiteSettings } from "@/lib/settings";
 
 function TikTokIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -12,11 +13,10 @@ function TikTokIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export async function Footer() {
-  const [settingsData, branchesData] = await Promise.all([
-    publicApiSafe<{ settings: any }>("/api/settings"),
+  const [settings, branchesData] = await Promise.all([
+    getSiteSettings(),
     publicApiSafe<{ branches: any[] }>("/api/branches"),
   ]);
-  const settings = settingsData?.settings;
   const branches = branchesData?.branches ?? [];
   const social = settings?.socialLinks ?? {};
   const logoUrl = settings?.logoUrl || "/brand/logo.jpg";

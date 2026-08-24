@@ -37,17 +37,17 @@ const bannerSchema = zod_1.z.object({
 });
 router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CONTENT_BANNERS), (0, validate_1.validateBody)(bannerSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const banner = await prisma_1.prisma.banner.create({ data: req.body });
-    await (0, audit_1.recordAudit)(req, { action: "banner.created", entityType: "Banner", entityId: banner.id });
+    (0, audit_1.recordAudit)(req, { action: "banner.created", entityType: "Banner", entityId: banner.id });
     res.status(201).json({ banner });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CONTENT_BANNERS), (0, validate_1.validateBody)(bannerSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const banner = await prisma_1.prisma.banner.update({ where: { id: req.params.id }, data: req.body });
-    await (0, audit_1.recordAudit)(req, { action: "banner.updated", entityType: "Banner", entityId: banner.id });
+    (0, audit_1.recordAudit)(req, { action: "banner.updated", entityType: "Banner", entityId: banner.id });
     res.json({ banner });
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CONTENT_BANNERS), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     await prisma_1.prisma.banner.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "banner.deleted", entityType: "Banner", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "banner.deleted", entityType: "Banner", entityId: req.params.id });
     res.json({ ok: true });
 }));
 exports.default = router;

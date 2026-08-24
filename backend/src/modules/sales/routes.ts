@@ -62,7 +62,7 @@ router.post(
         : []),
     ]);
 
-    await recordAudit(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
+    recordAudit(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
     res.status(201).json({ sale });
   })
 );

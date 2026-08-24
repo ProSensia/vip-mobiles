@@ -223,7 +223,7 @@ router.post(
     const product = await prisma.product.create({
       data: { ...req.body, slug, createdById: req.user!.id },
     });
-    await recordAudit(req, { action: "product.created", entityType: "Product", entityId: product.id });
+    recordAudit(req, { action: "product.created", entityType: "Product", entityId: product.id });
     res.status(201).json({ product });
   })
 );
@@ -237,7 +237,7 @@ router.patch(
     const data: any = { ...req.body };
     if (req.body.title) data.slug = await uniqueProductSlug(req.body.title, req.params.id);
     const product = await prisma.product.update({ where: { id: req.params.id }, data });
-    await recordAudit(req, { action: "product.updated", entityType: "Product", entityId: product.id });
+    recordAudit(req, { action: "product.updated", entityType: "Product", entityId: product.id });
     res.json({ product });
   })
 );
@@ -263,7 +263,7 @@ router.patch(
       data.soldPrice = null;
     }
     const product = await prisma.product.update({ where: { id: req.params.id }, data });
-    await recordAudit(req, {
+    recordAudit(req, {
       action: "product.status.changed",
       entityType: "Product",
       entityId: product.id,
@@ -281,7 +281,7 @@ router.delete(
     const sale = await prisma.sale.findUnique({ where: { productId: req.params.id } });
     if (sale) throw new ApiError(400, "Cannot delete a product with sale history. Hide it instead to preserve records.");
     await prisma.product.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "product.deleted", entityType: "Product", entityId: req.params.id });
+    recordAudit(req, { action: "product.deleted", entityType: "Product", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

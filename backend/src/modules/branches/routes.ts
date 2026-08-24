@@ -74,7 +74,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const slug = slugify(req.body.name);
     const branch = await prisma.branch.create({ data: { ...req.body, slug } as any });
-    await recordAudit(req, { action: "branch.created", entityType: "Branch", entityId: branch.id });
+    recordAudit(req, { action: "branch.created", entityType: "Branch", entityId: branch.id });
     res.status(201).json({ branch });
   })
 );
@@ -88,7 +88,7 @@ router.patch(
     const data: any = { ...req.body };
     if (req.body.name) data.slug = slugify(req.body.name);
     const branch = await prisma.branch.update({ where: { id: req.params.id }, data });
-    await recordAudit(req, { action: "branch.updated", entityType: "Branch", entityId: branch.id });
+    recordAudit(req, { action: "branch.updated", entityType: "Branch", entityId: branch.id });
     res.json({ branch });
   })
 );
@@ -101,7 +101,7 @@ router.delete(
     const count = await prisma.product.count({ where: { branchId: req.params.id } });
     if (count > 0) throw new ApiError(400, "Cannot delete a branch that still has products assigned.");
     await prisma.branch.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "branch.deleted", entityType: "Branch", entityId: req.params.id });
+    recordAudit(req, { action: "branch.deleted", entityType: "Branch", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

@@ -49,7 +49,7 @@ router.post("/reset-demo-data", (0, validate_1.validateBody)(confirmSchema), (0,
             summary[model] = -1; // signals "skipped, still referenced by real data"
         }
     }
-    await (0, audit_1.recordAudit)(req, { action: "system.demoData.reset", entityType: "System", meta: summary });
+    (0, audit_1.recordAudit)(req, { action: "system.demoData.reset", entityType: "System", meta: summary });
     res.json({ ok: true, summary });
 }));
 exports.default = router;

@@ -35,7 +35,7 @@ router.post(
     }
 
     const variant = await prisma.productVariant.create({ data: { ...req.body, productId } });
-    await recordAudit(req, { action: "variant.created", entityType: "ProductVariant", entityId: variant.id });
+    recordAudit(req, { action: "variant.created", entityType: "ProductVariant", entityId: variant.id });
     res.status(201).json({ variant });
   })
 );
@@ -56,7 +56,7 @@ router.patch(
       where: { id: req.params.variantId },
       data: req.body,
     });
-    await recordAudit(req, { action: "variant.updated", entityType: "ProductVariant", entityId: variant.id });
+    recordAudit(req, { action: "variant.updated", entityType: "ProductVariant", entityId: variant.id });
     res.json({ variant });
   })
 );
@@ -67,7 +67,7 @@ router.delete(
   requirePermission(PERMISSIONS.PRODUCTS_EDIT),
   asyncHandler(async (req, res) => {
     await prisma.productVariant.delete({ where: { id: req.params.variantId } });
-    await recordAudit(req, { action: "variant.deleted", entityType: "ProductVariant", entityId: req.params.variantId });
+    recordAudit(req, { action: "variant.deleted", entityType: "ProductVariant", entityId: req.params.variantId });
     res.json({ ok: true });
   })
 );

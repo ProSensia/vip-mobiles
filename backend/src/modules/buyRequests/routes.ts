@@ -62,7 +62,7 @@ router.patch(
       where: { id: req.params.id },
       data: { status: req.body.status, handledById: req.user!.id },
     });
-    await recordAudit(req, { action: "buyRequest.updated", entityType: "BuyRequest", entityId: buyRequest.id });
+    recordAudit(req, { action: "buyRequest.updated", entityType: "BuyRequest", entityId: buyRequest.id });
     res.json({ buyRequest });
   })
 );

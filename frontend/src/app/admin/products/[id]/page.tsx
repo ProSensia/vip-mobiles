@@ -9,6 +9,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/Card";
 import { Input, FormField, Select, Textarea } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ProductStatusBadge } from "@/components/ui/Badge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ImagesManager } from "@/components/admin/product/ImagesManager";
 import { VariantsManager } from "@/components/admin/product/VariantsManager";
 import { VideosManager } from "@/components/admin/product/VideosManager";
@@ -80,7 +81,35 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     }
   }
 
-  if (loading || !form) return <p className="text-sm text-muted">Loading product...</p>;
+  if (loading || !form) {
+    return (
+      <div className="max-w-4xl space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <Card>
+          <CardBody className="space-y-4 py-6">
+            <Skeleton className="h-9 w-full" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+            <Skeleton className="h-24 w-full" />
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody className="py-6">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-square w-full" />
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl space-y-6">

@@ -48,7 +48,7 @@ router.post(
     const section = await prisma.homepageSection.create({
       data: { ...req.body, sortOrder: req.body.sortOrder ?? count },
     });
-    await recordAudit(req, { action: "homepage.section.created", entityType: "HomepageSection", entityId: section.id });
+    recordAudit(req, { action: "homepage.section.created", entityType: "HomepageSection", entityId: section.id });
     res.status(201).json({ section });
   })
 );
@@ -60,7 +60,7 @@ router.patch(
   validateBody(sectionSchema.partial()),
   asyncHandler(async (req, res) => {
     const section = await prisma.homepageSection.update({ where: { id: req.params.id }, data: req.body });
-    await recordAudit(req, { action: "homepage.section.updated", entityType: "HomepageSection", entityId: section.id });
+    recordAudit(req, { action: "homepage.section.updated", entityType: "HomepageSection", entityId: section.id });
     res.json({ section });
   })
 );
@@ -88,7 +88,7 @@ router.delete(
   requirePermission(PERMISSIONS.CONTENT_HOMEPAGE),
   asyncHandler(async (req, res) => {
     await prisma.homepageSection.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "homepage.section.deleted", entityType: "HomepageSection", entityId: req.params.id });
+    recordAudit(req, { action: "homepage.section.deleted", entityType: "HomepageSection", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

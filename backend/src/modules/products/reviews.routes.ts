@@ -39,7 +39,7 @@ router.post(
     const review = await prisma.review.create({
       data: { ...req.body, productId: req.params.id, isApproved: true },
     });
-    await recordAudit(req, { action: "review.created", entityType: "Review", entityId: review.id });
+    recordAudit(req, { action: "review.created", entityType: "Review", entityId: review.id });
     res.status(201).json({ review });
   })
 );
@@ -63,7 +63,7 @@ router.patch(
   requirePermission(PERMISSIONS.PRODUCTS_MANAGE_REVIEWS),
   asyncHandler(async (req, res) => {
     const review = await prisma.review.update({ where: { id: req.params.reviewId }, data: { isApproved: true } });
-    await recordAudit(req, { action: "review.approved", entityType: "Review", entityId: review.id });
+    recordAudit(req, { action: "review.approved", entityType: "Review", entityId: review.id });
     res.json({ review });
   })
 );
@@ -74,7 +74,7 @@ router.delete(
   requirePermission(PERMISSIONS.PRODUCTS_MANAGE_REVIEWS),
   asyncHandler(async (req, res) => {
     await prisma.review.delete({ where: { id: req.params.reviewId } });
-    await recordAudit(req, { action: "review.deleted", entityType: "Review", entityId: req.params.reviewId });
+    recordAudit(req, { action: "review.deleted", entityType: "Review", entityId: req.params.reviewId });
     res.json({ ok: true });
   })
 );

@@ -44,7 +44,7 @@ router.put("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERM
         create: { key, value: value },
         update: { value: value },
     })));
-    await (0, audit_1.recordAudit)(req, { action: "settings.updated", entityType: "Setting", meta: { keys: entries.map(([k]) => k) } });
+    (0, audit_1.recordAudit)(req, { action: "settings.updated", entityType: "Setting", meta: { keys: entries.map(([k]) => k) } });
     const rows = await prisma_1.prisma.setting.findMany({ where: { key: { in: PUBLIC_KEYS } } });
     const map = { ...exports.DEFAULT_SETTINGS };
     for (const row of rows)

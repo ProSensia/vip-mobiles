@@ -189,7 +189,7 @@ router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PER
     const product = await prisma_1.prisma.product.create({
         data: { ...req.body, slug, createdById: req.user.id },
     });
-    await (0, audit_1.recordAudit)(req, { action: "product.created", entityType: "Product", entityId: product.id });
+    (0, audit_1.recordAudit)(req, { action: "product.created", entityType: "Product", entityId: product.id });
     res.status(201).json({ product });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_EDIT), (0, validate_1.validateBody)(productSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -197,7 +197,7 @@ router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1
     if (req.body.title)
         data.slug = await (0, uniqueSlug_1.uniqueProductSlug)(req.body.title, req.params.id);
     const product = await prisma_1.prisma.product.update({ where: { id: req.params.id }, data });
-    await (0, audit_1.recordAudit)(req, { action: "product.updated", entityType: "Product", entityId: product.id });
+    (0, audit_1.recordAudit)(req, { action: "product.updated", entityType: "Product", entityId: product.id });
     res.json({ product });
 }));
 const statusSchema = zod_1.z.object({
@@ -217,7 +217,7 @@ router.patch("/:id/status", auth_1.authenticate, (0, auth_1.requirePermission)(s
         data.soldPrice = null;
     }
     const product = await prisma_1.prisma.product.update({ where: { id: req.params.id }, data });
-    await (0, audit_1.recordAudit)(req, {
+    (0, audit_1.recordAudit)(req, {
         action: "product.status.changed",
         entityType: "Product",
         entityId: product.id,
@@ -230,7 +230,7 @@ router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_
     if (sale)
         throw new errorHandler_1.ApiError(400, "Cannot delete a product with sale history. Hide it instead to preserve records.");
     await prisma_1.prisma.product.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "product.deleted", entityType: "Product", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "product.deleted", entityType: "Product", entityId: req.params.id });
     res.json({ ok: true });
 }));
 router.use("/:id/variants", variants_routes_1.default);

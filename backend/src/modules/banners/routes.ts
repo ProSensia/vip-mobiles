@@ -47,7 +47,7 @@ router.post(
   validateBody(bannerSchema),
   asyncHandler(async (req, res) => {
     const banner = await prisma.banner.create({ data: req.body as any });
-    await recordAudit(req, { action: "banner.created", entityType: "Banner", entityId: banner.id });
+    recordAudit(req, { action: "banner.created", entityType: "Banner", entityId: banner.id });
     res.status(201).json({ banner });
   })
 );
@@ -59,7 +59,7 @@ router.patch(
   validateBody(bannerSchema.partial()),
   asyncHandler(async (req, res) => {
     const banner = await prisma.banner.update({ where: { id: req.params.id }, data: req.body as any });
-    await recordAudit(req, { action: "banner.updated", entityType: "Banner", entityId: banner.id });
+    recordAudit(req, { action: "banner.updated", entityType: "Banner", entityId: banner.id });
     res.json({ banner });
   })
 );
@@ -70,7 +70,7 @@ router.delete(
   requirePermission(PERMISSIONS.CONTENT_BANNERS),
   asyncHandler(async (req, res) => {
     await prisma.banner.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "banner.deleted", entityType: "Banner", entityId: req.params.id });
+    recordAudit(req, { action: "banner.deleted", entityType: "Banner", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

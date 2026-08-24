@@ -73,7 +73,7 @@ router.post("/generate", (0, validate_1.validateBody)(generateSchema), (0, error
             createdById: req.user.id,
         },
     });
-    await (0, audit_1.recordAudit)(req, {
+    (0, audit_1.recordAudit)(req, {
         action: "social.creative.generated",
         entityType: "SocialCreative",
         entityId: creative.id,

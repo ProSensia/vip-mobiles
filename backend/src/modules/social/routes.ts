@@ -88,7 +88,7 @@ router.post(
       },
     });
 
-    await recordAudit(req, {
+    recordAudit(req, {
       action: "social.creative.generated",
       entityType: "SocialCreative",
       entityId: creative.id,

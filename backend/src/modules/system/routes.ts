@@ -59,7 +59,7 @@ router.post(
       }
     }
 
-    await recordAudit(req, { action: "system.demoData.reset", entityType: "System", meta: summary });
+    recordAudit(req, { action: "system.demoData.reset", entityType: "System", meta: summary });
     res.json({ ok: true, summary });
   })
 );

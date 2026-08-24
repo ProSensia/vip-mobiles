@@ -23,12 +23,12 @@ router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PER
     const video = await prisma_1.prisma.productVideo.create({
         data: { productId, platform, url: req.body.url, embedId, caption: req.body.caption, sortOrder: count },
     });
-    await (0, audit_1.recordAudit)(req, { action: "video.created", entityType: "ProductVideo", entityId: video.id });
+    (0, audit_1.recordAudit)(req, { action: "video.created", entityType: "ProductVideo", entityId: video.id });
     res.status(201).json({ video });
 }));
 router.delete("/:videoId", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_EDIT), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     await prisma_1.prisma.productVideo.delete({ where: { id: req.params.videoId } });
-    await (0, audit_1.recordAudit)(req, { action: "video.deleted", entityType: "ProductVideo", entityId: req.params.videoId });
+    (0, audit_1.recordAudit)(req, { action: "video.deleted", entityType: "ProductVideo", entityId: req.params.videoId });
     res.json({ ok: true });
 }));
 exports.default = router;

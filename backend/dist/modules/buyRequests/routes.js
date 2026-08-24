@@ -43,7 +43,7 @@ router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1
         where: { id: req.params.id },
         data: { status: req.body.status, handledById: req.user.id },
     });
-    await (0, audit_1.recordAudit)(req, { action: "buyRequest.updated", entityType: "BuyRequest", entityId: buyRequest.id });
+    (0, audit_1.recordAudit)(req, { action: "buyRequest.updated", entityType: "BuyRequest", entityId: buyRequest.id });
     res.json({ buyRequest });
 }));
 exports.default = router;

@@ -27,34 +27,38 @@ router.post(
     const files = (req.files as Express.Multer.File[]) ?? [];
     if (files.length === 0) throw new ApiError(400, "No images were uploaded");
 
-    const existingCount = await prisma.productImage.count({ where: { productId } });
-    const currentMax = await prisma.productImage.aggregate({
-      where: { productId },
-      _max: { sortOrder: true },
-    });
-    let nextSort = (currentMax._max.sortOrder ?? -1) + 1;
+    const [existingCount, currentMax] = await Promise.all([
+      prisma.productImage.count({ where: { productId } }),
+      prisma.productImage.aggregate({ where: { productId }, _max: { sortOrder: true } }),
+    ]);
+    const baseSort = (currentMax._max.sortOrder ?? -1) + 1;
 
-    const created = [];
-    for (let i = 0; i < files.length; i++) {
-      const processed = await processProductImage(files[i].buffer, `products/${productId}`);
-      const image = await prisma.productImage.create({
-        data: {
-          productId,
-          url: processed.url,
-          webpUrl: processed.webpUrl,
-          avifUrl: processed.avifUrl,
-          thumbUrl: processed.thumbUrl,
-          width: processed.width,
-          height: processed.height,
-          sortOrder: nextSort++,
-          isPrimary: existingCount === 0 && i === 0,
-          altText: product.title,
-        },
-      });
-      created.push(image);
-    }
+    // sharp offloads the actual pixel work to libuv's native thread pool, so
+    // processing the batch concurrently (rather than one-file-at-a-time)
+    // gets genuine parallelism, not just interleaved async bookkeeping —
+    // this is what made bulk uploads take minutes instead of seconds.
+    const processed = await Promise.all(files.map((f) => processProductImage(f.buffer, `products/${productId}`)));
 
-    await recordAudit(req, {
+    const created = await prisma.$transaction(
+      processed.map((p, i) =>
+        prisma.productImage.create({
+          data: {
+            productId,
+            url: p.url,
+            webpUrl: p.webpUrl,
+            mediumUrl: p.mediumUrl,
+            thumbUrl: p.thumbUrl,
+            width: p.width,
+            height: p.height,
+            sortOrder: baseSort + i,
+            isPrimary: existingCount === 0 && i === 0,
+            altText: product.title,
+          },
+        })
+      )
+    );
+
+    recordAudit(req, {
       action: "product.images.uploaded",
       entityType: "Product",
       entityId: productId,
@@ -101,7 +105,7 @@ router.delete(
   requirePermission(PERMISSIONS.PRODUCTS_EDIT),
   asyncHandler(async (req, res) => {
     await prisma.productImage.delete({ where: { id: req.params.imageId } });
-    await recordAudit(req, {
+    recordAudit(req, {
       action: "product.image.deleted",
       entityType: "Product",
       entityId: req.params.id,

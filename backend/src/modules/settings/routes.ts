@@ -58,7 +58,7 @@ router.put(
         })
       )
     );
-    await recordAudit(req, { action: "settings.updated", entityType: "Setting", meta: { keys: entries.map(([k]) => k) } });
+    recordAudit(req, { action: "settings.updated", entityType: "Setting", meta: { keys: entries.map(([k]) => k) } });
 
     const rows = await prisma.setting.findMany({ where: { key: { in: PUBLIC_KEYS } } });
     const map: Record<string, unknown> = { ...DEFAULT_SETTINGS };

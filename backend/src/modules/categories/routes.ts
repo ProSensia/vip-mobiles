@@ -55,7 +55,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const slug = slugify(req.body.name);
     const category = await prisma.category.create({ data: { ...req.body, slug } });
-    await recordAudit(req, { action: "category.created", entityType: "Category", entityId: category.id });
+    recordAudit(req, { action: "category.created", entityType: "Category", entityId: category.id });
     res.status(201).json({ category });
   })
 );
@@ -69,7 +69,7 @@ router.patch(
     const data: any = { ...req.body };
     if (req.body.name) data.slug = slugify(req.body.name);
     const category = await prisma.category.update({ where: { id: req.params.id }, data });
-    await recordAudit(req, { action: "category.updated", entityType: "Category", entityId: category.id });
+    recordAudit(req, { action: "category.updated", entityType: "Category", entityId: category.id });
     res.json({ category });
   })
 );
@@ -82,7 +82,7 @@ router.delete(
     const count = await prisma.product.count({ where: { categoryId: req.params.id } });
     if (count > 0) throw new ApiError(400, "Cannot delete a category that still has products. Reassign or remove them first.");
     await prisma.category.delete({ where: { id: req.params.id } });
-    await recordAudit(req, { action: "category.deleted", entityType: "Category", entityId: req.params.id });
+    recordAudit(req, { action: "category.deleted", entityType: "Category", entityId: req.params.id });
     res.json({ ok: true });
   })
 );

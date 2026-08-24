@@ -42,7 +42,7 @@ const categorySchema = zod_1.z.object({
 router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_CATEGORIES), (0, validate_1.validateBody)(categorySchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const slug = (0, shared_1.slugify)(req.body.name);
     const category = await prisma_1.prisma.category.create({ data: { ...req.body, slug } });
-    await (0, audit_1.recordAudit)(req, { action: "category.created", entityType: "Category", entityId: category.id });
+    (0, audit_1.recordAudit)(req, { action: "category.created", entityType: "Category", entityId: category.id });
     res.status(201).json({ category });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_CATEGORIES), (0, validate_1.validateBody)(categorySchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -50,7 +50,7 @@ router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1
     if (req.body.name)
         data.slug = (0, shared_1.slugify)(req.body.name);
     const category = await prisma_1.prisma.category.update({ where: { id: req.params.id }, data });
-    await (0, audit_1.recordAudit)(req, { action: "category.updated", entityType: "Category", entityId: category.id });
+    (0, audit_1.recordAudit)(req, { action: "category.updated", entityType: "Category", entityId: category.id });
     res.json({ category });
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.CATALOG_MANAGE_CATEGORIES), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -58,7 +58,7 @@ router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_
     if (count > 0)
         throw new errorHandler_1.ApiError(400, "Cannot delete a category that still has products. Reassign or remove them first.");
     await prisma_1.prisma.category.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "category.deleted", entityType: "Category", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "category.deleted", entityType: "Category", entityId: req.params.id });
     res.json({ ok: true });
 }));
 exports.default = router;

@@ -61,14 +61,14 @@ router.post(
 
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
-      await recordAudit(req, { action: "auth.login.failed", entityType: "User", entityId: user.id });
+      recordAudit(req, { action: "auth.login.failed", entityType: "User", entityId: user.id });
       throw new ApiError(401, "Invalid email or password");
     }
 
     await issueSession(res, user.id, user.role, user.permissions);
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     req.user = { id: user.id, role: user.role, permissions: user.permissions as any };
-    await recordAudit(req, { action: "auth.login.success", entityType: "User", entityId: user.id });
+    recordAudit(req, { action: "auth.login.success", entityType: "User", entityId: user.id });
 
     res.json({
       user: {
@@ -168,7 +168,7 @@ router.post(
         subject: "Reset your VIP Mobiles admin password",
         text: `Hi ${user.name},\n\nReset your password using this link (valid 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
       });
-      await recordAudit(req, { action: "auth.password.forgot", entityType: "User", entityId: user.id });
+      recordAudit(req, { action: "auth.password.forgot", entityType: "User", entityId: user.id });
     }
 
     res.json({ ok: true, message: "If that email is registered, a reset link has been sent." });
@@ -204,7 +204,7 @@ router.post(
       }),
     ]);
 
-    await recordAudit(req, { action: "auth.password.reset", entityType: "User", entityId: record.userId });
+    recordAudit(req, { action: "auth.password.reset", entityType: "User", entityId: record.userId });
     res.json({ ok: true });
   })
 );
@@ -227,7 +227,7 @@ router.post(
 
     const passwordHash = await hashPassword(req.body.newPassword);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
-    await recordAudit(req, { action: "auth.password.changed", entityType: "User", entityId: user.id });
+    recordAudit(req, { action: "auth.password.changed", entityType: "User", entityId: user.id });
 
     res.json({ ok: true });
   })

@@ -61,7 +61,7 @@ const branchSchema = zod_1.z.object({
 router.post("/", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.BRANCHES_MANAGE), (0, validate_1.validateBody)(branchSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const slug = (0, shared_1.slugify)(req.body.name);
     const branch = await prisma_1.prisma.branch.create({ data: { ...req.body, slug } });
-    await (0, audit_1.recordAudit)(req, { action: "branch.created", entityType: "Branch", entityId: branch.id });
+    (0, audit_1.recordAudit)(req, { action: "branch.created", entityType: "Branch", entityId: branch.id });
     res.status(201).json({ branch });
 }));
 router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.BRANCHES_MANAGE), (0, validate_1.validateBody)(branchSchema.partial()), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -69,7 +69,7 @@ router.patch("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1
     if (req.body.name)
         data.slug = (0, shared_1.slugify)(req.body.name);
     const branch = await prisma_1.prisma.branch.update({ where: { id: req.params.id }, data });
-    await (0, audit_1.recordAudit)(req, { action: "branch.updated", entityType: "Branch", entityId: branch.id });
+    (0, audit_1.recordAudit)(req, { action: "branch.updated", entityType: "Branch", entityId: branch.id });
     res.json({ branch });
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.BRANCHES_MANAGE), (0, errorHandler_1.asyncHandler)(async (req, res) => {
@@ -77,7 +77,7 @@ router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_
     if (count > 0)
         throw new errorHandler_1.ApiError(400, "Cannot delete a branch that still has products assigned.");
     await prisma_1.prisma.branch.delete({ where: { id: req.params.id } });
-    await (0, audit_1.recordAudit)(req, { action: "branch.deleted", entityType: "Branch", entityId: req.params.id });
+    (0, audit_1.recordAudit)(req, { action: "branch.deleted", entityType: "Branch", entityId: req.params.id });
     res.json({ ok: true });
 }));
 exports.default = router;
