@@ -5,6 +5,7 @@ const zod_1 = require("zod");
 const prisma_1 = require("../../lib/prisma");
 const errorHandler_1 = require("../../middleware/errorHandler");
 const validate_1 = require("../../middleware/validate");
+const auth_1 = require("../../middleware/auth");
 const rateLimit_1 = require("../../middleware/rateLimit");
 const upload_1 = require("../../middleware/upload");
 const image_1 = require("../../utils/image");
@@ -73,5 +74,19 @@ router.post("/token/:token", rateLimit_1.publicFormLimiter, upload_1.imageUpload
         link: `/admin/products/${sale.productId}`,
     });
     res.status(201).json({ message: "Thanks! Your review will appear after moderation." });
+}));
+// Authenticated: powers the centralized Approvals & Requests admin page —
+// every pending review across the whole catalog in one list, instead of
+// having to open each product individually to find one awaiting moderation.
+router.get("/pending", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_MANAGE_REVIEWS), (0, errorHandler_1.asyncHandler)(async (_req, res) => {
+    const reviews = await prisma_1.prisma.review.findMany({
+        where: { isApproved: false },
+        include: {
+            product: { select: { id: true, title: true, slug: true, images: { where: { isPrimary: true }, take: 1, select: { thumbUrl: true, url: true } } } },
+        },
+        orderBy: { createdAt: "asc" },
+        take: 200,
+    });
+    res.json({ reviews });
 }));
 exports.default = router;

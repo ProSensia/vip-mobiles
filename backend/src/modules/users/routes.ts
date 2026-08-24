@@ -59,8 +59,66 @@ router.get(
         lastLoginAt: u.lastLoginAt,
         createdAt: u.createdAt,
         permissions: effectivePermissions({ role: u.role, permissions: u.permissions as any }),
+        // Full public "About & Team" profile — kept alongside the account
+        // fields above rather than a separate endpoint, since the Team page
+        // starts from this same staff list.
+        teamProfile: u.staffProfile
+          ? {
+              position: u.staffProfile.position,
+              bio: u.staffProfile.bio,
+              photoUrl: u.staffProfile.photoUrl,
+              phone: u.staffProfile.phone,
+              branchId: u.staffProfile.branchId,
+              displayOnSite: u.staffProfile.displayOnSite,
+              sortOrder: u.staffProfile.sortOrder,
+            }
+          : null,
       })),
     });
+  })
+);
+
+const teamProfileSchema = z.object({
+  position: z.string().max(150).optional().nullable(),
+  bio: z.string().max(1000).optional().nullable(),
+  photoUrl: z.string().optional().nullable(),
+  phone: z.string().max(50).optional().nullable(),
+  branchId: z.string().optional().nullable(),
+  displayOnSite: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+});
+
+// Separate from the account-level PATCH /:id below — this is specifically
+// the public-facing "About & Team" profile (photo/bio/display toggle), kept
+// as its own endpoint so the Team page doesn't need staff-account write
+// access to do its job.
+router.put(
+  "/:id/team-profile",
+  requirePermission(PERMISSIONS.STAFF_MANAGE),
+  validateBody(teamProfileSchema),
+  asyncHandler(async (req, res) => {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target) throw new ApiError(404, "User not found");
+
+    const data = req.body;
+    const profile = await prisma.staffProfile.upsert({
+      where: { userId: target.id },
+      create: { userId: target.id, ...data },
+      update: data,
+    });
+
+    recordAudit(req, { action: "user.teamProfile.updated", entityType: "User", entityId: target.id });
+    res.json({ teamProfile: profile });
+  })
+);
+
+router.delete(
+  "/:id/team-profile",
+  requirePermission(PERMISSIONS.STAFF_MANAGE),
+  asyncHandler(async (req, res) => {
+    await prisma.staffProfile.deleteMany({ where: { userId: req.params.id } });
+    recordAudit(req, { action: "user.teamProfile.removed", entityType: "User", entityId: req.params.id });
+    res.json({ ok: true });
   })
 );
 

@@ -14,10 +14,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const includeInactive = req.query.all === "1";
     const featuredOnly = req.query.featured === "1";
+    const accessory = req.query.accessory as string | undefined;
     const categories = await prisma.category.findMany({
       where: {
         ...(includeInactive ? {} : { isActive: true }),
         ...(featuredOnly ? { isFeatured: true } : {}),
+        ...(accessory === "1" ? { isAccessory: true } : accessory === "0" ? { isAccessory: false } : {}),
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       include: { _count: { select: { products: true } } },
@@ -42,6 +44,7 @@ const categorySchema = z.object({
   parentId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
+  isAccessory: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
   metaTitle: z.string().max(200).optional().nullable(),
   metaDescription: z.string().max(320).optional().nullable(),

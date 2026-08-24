@@ -51,6 +51,7 @@ const listQuerySchema = zod_1.z.object({
     brand: zod_1.z.string().optional(),
     condition: zod_1.z.string().optional(),
     status: zod_1.z.string().optional(),
+    accessory: zod_1.z.string().optional(),
     q: zod_1.z.string().optional(),
     minPrice: zod_1.z.coerce.number().optional(),
     maxPrice: zod_1.z.coerce.number().optional(),
@@ -70,6 +71,10 @@ router.get("/", (0, validate_1.validateQuery)(listQuerySchema), (0, errorHandler
     // Authenticated staff with no explicit status filter see every status, including HIDDEN.
     if (q.category)
         where.category = { slug: q.category };
+    else if (q.accessory === "1")
+        where.category = { isAccessory: true };
+    else if (q.accessory === "0")
+        where.category = { isAccessory: false };
     if (q.brand)
         where.brand = { slug: q.brand };
     if (q.condition)

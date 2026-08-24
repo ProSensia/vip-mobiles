@@ -9,7 +9,7 @@ import { authenticate, requirePermission } from "../../middleware/auth";
 import { imageUpload } from "../../middleware/upload";
 import { processGenericImage } from "../../utils/image";
 import { recordAudit } from "../../utils/audit";
-import { notifyUsersWithPermission } from "../../utils/notifications";
+import { notifyUser, notifyUsersWithPermission } from "../../utils/notifications";
 import { hasPermission, PERMISSIONS } from "../../shared";
 import { env } from "../../env";
 
@@ -80,6 +80,31 @@ router.post(
     ]);
 
     recordAudit(req, { action: "sale.recorded", entityType: "Sale", entityId: sale.id, meta: { productId: product.id } });
+
+    // A completed sale is the natural end of any Buy Request for the same
+    // product — close them out and drop a "sale completed" entry into their
+    // timeline so staff aren't left with a stale, still-open request.
+    const openBuyRequests = await prisma.buyRequest.findMany({
+      where: { productId: product.id, status: { notIn: ["REJECTED", "CANCELLED", "CLOSED"] } },
+    });
+    for (const br of openBuyRequests) {
+      await prisma.buyRequest.update({ where: { id: br.id }, data: { status: "CLOSED" } });
+      recordAudit(req, {
+        action: "buyRequest.saleCompleted",
+        entityType: "BuyRequest",
+        entityId: br.id,
+        meta: { previousStatus: br.status, newStatus: "CLOSED", saleId: sale.id, soldPrice: req.body.soldPrice },
+      });
+      if (br.assignedToId && br.assignedToId !== req.user!.id) {
+        notifyUser({
+          userId: br.assignedToId,
+          type: "BUY_REQUEST_STATUS_CHANGED",
+          title: "Sale Completed",
+          message: `${product.title} was sold — this buy request is now closed`,
+          link: `/admin/buy-requests?id=${br.id}`,
+        });
+      }
+    }
 
     notifyUsersWithPermission(
       PERMISSIONS.SALES_ANALYTICS,

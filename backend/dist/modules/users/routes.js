@@ -55,8 +55,53 @@ router.get("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_VIEW), 
             lastLoginAt: u.lastLoginAt,
             createdAt: u.createdAt,
             permissions: (0, shared_1.effectivePermissions)({ role: u.role, permissions: u.permissions }),
+            // Full public "About & Team" profile — kept alongside the account
+            // fields above rather than a separate endpoint, since the Team page
+            // starts from this same staff list.
+            teamProfile: u.staffProfile
+                ? {
+                    position: u.staffProfile.position,
+                    bio: u.staffProfile.bio,
+                    photoUrl: u.staffProfile.photoUrl,
+                    phone: u.staffProfile.phone,
+                    branchId: u.staffProfile.branchId,
+                    displayOnSite: u.staffProfile.displayOnSite,
+                    sortOrder: u.staffProfile.sortOrder,
+                }
+                : null,
         })),
     });
+}));
+const teamProfileSchema = zod_1.z.object({
+    position: zod_1.z.string().max(150).optional().nullable(),
+    bio: zod_1.z.string().max(1000).optional().nullable(),
+    photoUrl: zod_1.z.string().optional().nullable(),
+    phone: zod_1.z.string().max(50).optional().nullable(),
+    branchId: zod_1.z.string().optional().nullable(),
+    displayOnSite: zod_1.z.boolean().optional(),
+    sortOrder: zod_1.z.coerce.number().int().optional(),
+});
+// Separate from the account-level PATCH /:id below — this is specifically
+// the public-facing "About & Team" profile (photo/bio/display toggle), kept
+// as its own endpoint so the Team page doesn't need staff-account write
+// access to do its job.
+router.put("/:id/team-profile", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE), (0, validate_1.validateBody)(teamProfileSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    const target = await prisma_1.prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target)
+        throw new errorHandler_1.ApiError(404, "User not found");
+    const data = req.body;
+    const profile = await prisma_1.prisma.staffProfile.upsert({
+        where: { userId: target.id },
+        create: { userId: target.id, ...data },
+        update: data,
+    });
+    (0, audit_1.recordAudit)(req, { action: "user.teamProfile.updated", entityType: "User", entityId: target.id });
+    res.json({ teamProfile: profile });
+}));
+router.delete("/:id/team-profile", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE), (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    await prisma_1.prisma.staffProfile.deleteMany({ where: { userId: req.params.id } });
+    (0, audit_1.recordAudit)(req, { action: "user.teamProfile.removed", entityType: "User", entityId: req.params.id });
+    res.json({ ok: true });
 }));
 const createUserSchema = zod_1.z.object({
     name: zod_1.z.string().min(2).max(150),

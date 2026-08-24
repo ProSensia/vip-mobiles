@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { validateBody } from "../../middleware/validate";
+import { authenticate, requirePermission } from "../../middleware/auth";
 import { publicFormLimiter } from "../../middleware/rateLimit";
 import { imageUpload } from "../../middleware/upload";
 import { processGenericImage } from "../../utils/image";
@@ -85,6 +86,26 @@ router.post(
     });
 
     res.status(201).json({ message: "Thanks! Your review will appear after moderation." });
+  })
+);
+
+// Authenticated: powers the centralized Approvals & Requests admin page —
+// every pending review across the whole catalog in one list, instead of
+// having to open each product individually to find one awaiting moderation.
+router.get(
+  "/pending",
+  authenticate,
+  requirePermission(PERMISSIONS.PRODUCTS_MANAGE_REVIEWS),
+  asyncHandler(async (_req, res) => {
+    const reviews = await prisma.review.findMany({
+      where: { isApproved: false },
+      include: {
+        product: { select: { id: true, title: true, slug: true, images: { where: { isPrimary: true }, take: 1, select: { thumbUrl: true, url: true } } } },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 200,
+    });
+    res.json({ reviews });
   })
 );
 

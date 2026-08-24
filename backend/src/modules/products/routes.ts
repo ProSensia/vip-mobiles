@@ -51,6 +51,7 @@ const listQuerySchema = z.object({
   brand: z.string().optional(),
   condition: z.string().optional(),
   status: z.string().optional(),
+  accessory: z.string().optional(),
   q: z.string().optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
@@ -74,6 +75,8 @@ router.get(
     // Authenticated staff with no explicit status filter see every status, including HIDDEN.
 
     if (q.category) where.category = { slug: q.category };
+    else if (q.accessory === "1") where.category = { isAccessory: true };
+    else if (q.accessory === "0") where.category = { isAccessory: false };
     if (q.brand) where.brand = { slug: q.brand };
     if (q.condition) where.condition = q.condition as any;
     if (q.q) {

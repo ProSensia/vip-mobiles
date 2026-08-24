@@ -17,6 +17,7 @@ interface Category {
   name: string;
   isActive: boolean;
   isFeatured: boolean;
+  isAccessory: boolean;
   _count: { products: number };
 }
 
@@ -39,7 +40,10 @@ export default function CategoriesPage() {
 
   const columns: Column<Category>[] = [
     { key: "name", header: "Category", render: (c) => (
-      <span className="flex items-center gap-1.5 font-medium">{c.name} {c.isFeatured && <Star className="h-3.5 w-3.5 fill-gold-400 text-gold-400" />}</span>
+      <span className="flex items-center gap-1.5 font-medium">
+        {c.name} {c.isFeatured && <Star className="h-3.5 w-3.5 fill-gold-400 text-gold-400" />}
+        {c.isAccessory && <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium text-blue-400">Accessory</span>}
+      </span>
     ) },
     { key: "products", header: "Products", render: (c) => c._count.products },
     { key: "status", header: "Status", render: (c) => (c.isActive ? "Active" : "Inactive") },
@@ -73,13 +77,14 @@ function CategoryFormModal({ category, onClose, onSaved }: { category: Category 
   const [description, setDescription] = useState((category as any)?.description ?? "");
   const [isActive, setIsActive] = useState(category?.isActive ?? true);
   const [isFeatured, setIsFeatured] = useState(category?.isFeatured ?? false);
+  const [isAccessory, setIsAccessory] = useState(category?.isAccessory ?? false);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { name, description, isActive, isFeatured };
+      const payload = { name, description, isActive, isFeatured, isAccessory };
       if (category) await clientApi.patch(`/categories/${category.id}`, payload);
       else await clientApi.post("/categories", payload);
       toast.success(category ? "Category updated" : "Category created");
@@ -102,6 +107,9 @@ function CategoryFormModal({ category, onClose, onSaved }: { category: Category 
         </label>
         <label className="flex items-center gap-2 text-sm text-cream">
           <input type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="h-4 w-4 rounded border-ink-600 accent-gold-500" /> Featured on homepage
+        </label>
+        <label className="flex items-center gap-2 text-sm text-cream">
+          <input type="checkbox" checked={isAccessory} onChange={(e) => setIsAccessory(e.target.checked)} className="h-4 w-4 rounded border-ink-600 accent-gold-500" /> Accessory category (shows in the Accessories admin catalog)
         </label>
         <Button type="submit" className="w-full" loading={saving}>Save Category</Button>
       </form>

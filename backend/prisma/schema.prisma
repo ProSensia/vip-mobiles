@@ -214,6 +214,10 @@ model Category {
   parentId        String?
   isActive        Boolean  @default(true)
   isFeatured      Boolean  @default(false)
+  // Marks this category (and anything filed under it) as accessories rather
+  // than phones — lets the dedicated Accessories admin page and catalog
+  // filter reliably without string-matching a category name/slug.
+  isAccessory     Boolean  @default(false)
   isDemo          Boolean  @default(false)
   sortOrder       Int      @default(0)
   metaTitle       String?  @db.VarChar(200)
@@ -227,6 +231,7 @@ model Category {
 
   @@index([isActive])
   @@index([isFeatured])
+  @@index([isAccessory])
   @@index([parentId])
 }
 

@@ -40,6 +40,8 @@ function describeEvent(row: AuditRow): string {
       return `${who} referred this to ${meta.toUserName ?? "a team member"}${meta.note ? ` — "${meta.note}"` : ""}`;
     case "buyRequest.statusChanged":
       return `${who} changed status from ${String(meta.previousStatus ?? "").toLowerCase()} to ${String(meta.newStatus ?? "").toLowerCase()}`;
+    case "buyRequest.saleCompleted":
+      return `Sale completed${meta.soldPrice ? ` for ${formatCurrency(meta.soldPrice)}` : ""} — request closed automatically`;
     default:
       return `${who} — ${row.action.replace(/\./g, " ")}`;
   }

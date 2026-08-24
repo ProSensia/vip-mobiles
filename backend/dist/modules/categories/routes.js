@@ -12,10 +12,12 @@ const router = (0, express_1.Router)();
 router.get("/", (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const includeInactive = req.query.all === "1";
     const featuredOnly = req.query.featured === "1";
+    const accessory = req.query.accessory;
     const categories = await prisma_1.prisma.category.findMany({
         where: {
             ...(includeInactive ? {} : { isActive: true }),
             ...(featuredOnly ? { isFeatured: true } : {}),
+            ...(accessory === "1" ? { isAccessory: true } : accessory === "0" ? { isAccessory: false } : {}),
         },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: { _count: { select: { products: true } } },
@@ -35,6 +37,7 @@ const categorySchema = zod_1.z.object({
     parentId: zod_1.z.string().optional().nullable(),
     isActive: zod_1.z.boolean().optional(),
     isFeatured: zod_1.z.boolean().optional(),
+    isAccessory: zod_1.z.boolean().optional(),
     sortOrder: zod_1.z.number().int().optional(),
     metaTitle: zod_1.z.string().max(200).optional().nullable(),
     metaDescription: zod_1.z.string().max(320).optional().nullable(),
