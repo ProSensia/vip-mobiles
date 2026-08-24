@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Sparkles, Download, Instagram } from "lucide-react";
+import { Sparkles, Download, LayoutTemplate, Zap } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Card, CardHeader, CardBody } from "@/components/ui/Card";
 import { Select } from "@/components/ui/Input";
@@ -13,21 +13,27 @@ import { useFetch } from "@/lib/useFetch";
 import { clientApi, ClientApiError } from "@/lib/clientApi";
 import { cn } from "@/lib/utils";
 
-function TikTokIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M16.6 5.82c-.9-.98-1.4-2.26-1.4-3.57h-3.2v13.35c0 1.6-1.3 2.9-2.9 2.9a2.9 2.9 0 1 1 0-5.8c.3 0 .58.04.85.12V9.6a6.1 6.1 0 0 0-.85-.06 6.1 6.1 0 1 0 6.1 6.1V9.06a8.9 8.9 0 0 0 5.1 1.62v-3.2c-1.35 0-2.6-.44-3.6-1.66Z" />
-    </svg>
-  );
-}
-
 const TOGGLES = [
   { key: "showLogo", label: "Store Logo" },
   { key: "showPrice", label: "Price" },
+  { key: "showBadges", label: "Badges (discount, stock, etc.)" },
   { key: "showDescription", label: "Description" },
   { key: "showCTA", label: "Call to Action" },
   { key: "showSupportingImages", label: "Supporting Images" },
 ] as const;
+
+const FORMATS = [
+  { id: "square", platform: "INSTAGRAM", format: "square", label: "Square Post", hint: "Instagram / Facebook feed · 1:1" },
+  { id: "portrait", platform: "INSTAGRAM", format: "portrait", label: "Portrait Post", hint: "Instagram / Facebook feed · 4:5" },
+  { id: "story", platform: "TIKTOK", format: "story", label: "Story / Status", hint: "Instagram/FB Story, WhatsApp Status, TikTok · 9:16" },
+] as const;
+
+type FormatId = (typeof FORMATS)[number]["id"];
+
+const TEMPLATES: Array<{ id: "classic" | "bold"; label: string; hint: string; availableFor: FormatId[] }> = [
+  { id: "classic", label: "Classic", hint: "Photo + details side by side", availableFor: ["square", "portrait", "story"] },
+  { id: "bold", label: "Bold", hint: "Centered, price-forward", availableFor: ["square"] },
+];
 
 function SocialGeneratorInner() {
   const searchParams = useSearchParams();
@@ -35,14 +41,30 @@ function SocialGeneratorInner() {
   const { data: gradientsData } = useFetch<{ gradients: any[] }>("/social/gradients");
 
   const [productId, setProductId] = useState(searchParams.get("productId") ?? "");
-  const [platform, setPlatform] = useState<"INSTAGRAM" | "TIKTOK">("INSTAGRAM");
-  const [format, setFormat] = useState<"square" | "portrait">("square");
+  const [imageId, setImageId] = useState("");
+  const [formatId, setFormatId] = useState<FormatId>("square");
+  const [template, setTemplate] = useState<(typeof TEMPLATES)[number]["id"]>("classic");
   const [gradientId, setGradientId] = useState("");
   const [toggles, setToggles] = useState<Record<string, boolean>>({
-    showLogo: true, showPrice: true, showDescription: false, showCTA: true, showSupportingImages: true,
+    showLogo: true, showPrice: true, showBadges: true, showDescription: false, showCTA: true, showSupportingImages: true,
   });
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ imageUrl: string } | null>(null);
+
+  const { data: productDetail } = useFetch<{ product: any }>(productId ? `/products/by-id/${productId}` : null, [productId]);
+  const images: any[] = productDetail?.product?.images ?? [];
+
+  useEffect(() => {
+    if (images.length > 0 && !images.some((i) => i.id === imageId)) {
+      setImageId(images.find((i) => i.isPrimary)?.id ?? images[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, images.length]);
+
+  useEffect(() => {
+    const active = TEMPLATES.find((t) => t.id === template);
+    if (active && !active.availableFor.includes(formatId)) setTemplate("classic");
+  }, [formatId, template]);
 
   const { data: historyData, refetch: refetchHistory } = useFetch<{ creatives: any[] }>(
     productId ? `/social/history/${productId}` : null,
@@ -54,12 +76,15 @@ function SocialGeneratorInner() {
       toast.error("Please select a product");
       return;
     }
+    const chosenFormat = FORMATS.find((f) => f.id === formatId)!;
     setGenerating(true);
     try {
       const { creative } = await clientApi.post<{ creative: any }>("/social/generate", {
         productId,
-        platform,
-        format: platform === "INSTAGRAM" ? format : undefined,
+        imageId: imageId || undefined,
+        platform: chosenFormat.platform,
+        format: chosenFormat.format,
+        template,
         gradientId: gradientId || undefined,
         ...toggles,
       });
@@ -73,9 +98,11 @@ function SocialGeneratorInner() {
     }
   }
 
+  const activeTemplateOptions = TEMPLATES.filter((t) => t.availableFor.includes(formatId));
+
   return (
     <div>
-      <PageHeader title="Social Media Generator" description="Create branded Instagram and TikTok promotional creatives from any product." />
+      <PageHeader title="Social Media Studio" description="Create professional, on-brand marketing posts from any product — badges, pricing and branding composed automatically." />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -89,31 +116,61 @@ function SocialGeneratorInner() {
               </Select>
             </div>
 
+            {images.length > 1 && (
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-cream">Hero Image</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {images.map((img) => (
+                    <button
+                      key={img.id}
+                      onClick={() => setImageId(img.id)}
+                      className={cn("relative aspect-square overflow-hidden rounded-lg border-2", imageId === img.id ? "border-gold-500" : "border-ink-600")}
+                    >
+                      <Image src={img.thumbUrl || img.webpUrl || img.url} alt="" fill className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
-              <p className="mb-1.5 text-sm font-medium text-cream">Platform</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPlatform("INSTAGRAM")}
-                  className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium", platform === "INSTAGRAM" ? "border-gold-500 bg-gold-500/10 text-gold-400" : "border-ink-600 text-cream")}
-                >
-                  <Instagram className="h-4 w-4" /> Instagram
-                </button>
-                <button
-                  onClick={() => setPlatform("TIKTOK")}
-                  className={cn("flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium", platform === "TIKTOK" ? "border-gold-500 bg-gold-500/10 text-gold-400" : "border-ink-600 text-cream")}
-                >
-                  <TikTokIcon className="h-4 w-4" /> TikTok
-                </button>
+              <p className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-cream"><Zap className="h-3.5 w-3.5" /> Format</p>
+              <div className="grid grid-cols-3 gap-2">
+                {FORMATS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFormatId(f.id)}
+                    title={f.hint}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors",
+                      formatId === f.id ? "border-gold-500 bg-gold-500/10 text-gold-400" : "border-ink-600 text-cream hover:border-gold-500/40"
+                    )}
+                  >
+                    <span className="block text-sm font-semibold">{f.label}</span>
+                    <span className="mt-0.5 block text-[10px] text-muted">{f.hint}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
-            {platform === "INSTAGRAM" && (
+            {activeTemplateOptions.length > 1 && (
               <div>
-                <p className="mb-1.5 text-sm font-medium text-cream">Format</p>
-                <Select value={format} onChange={(e) => setFormat(e.target.value as any)}>
-                  <option value="square">Square (1:1)</option>
-                  <option value="portrait">Portrait (4:5)</option>
-                </Select>
+                <p className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-cream"><LayoutTemplate className="h-3.5 w-3.5" /> Template</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {activeTemplateOptions.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTemplate(t.id)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition-colors",
+                        template === t.id ? "border-gold-500 bg-gold-500/10 text-gold-400" : "border-ink-600 text-cream hover:border-gold-500/40"
+                      )}
+                    >
+                      <span className="block text-sm font-semibold">{t.label}</span>
+                      <span className="mt-0.5 block text-[10px] text-muted">{t.hint}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -134,6 +191,7 @@ function SocialGeneratorInner() {
 
             <div>
               <p className="mb-1.5 text-sm font-medium text-cream">Elements</p>
+              <p className="mb-2 text-xs text-muted">Discount, New Arrival, Hot Deal, Best Seller, Limited Stock and PTA Approved badges are added automatically based on the product&apos;s status.</p>
               <div className="grid grid-cols-2 gap-2">
                 {TOGGLES.map((t) => (
                   <label key={t.key} className="flex items-center gap-2 text-sm text-cream">

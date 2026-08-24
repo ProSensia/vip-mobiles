@@ -14,6 +14,8 @@ exports.effectivePermissions = effectivePermissions;
 exports.buildBuyRequestWhatsAppUrl = buildBuyRequestWhatsAppUrl;
 exports.slugify = slugify;
 exports.formatCurrency = formatCurrency;
+exports.computeStockLevel = computeStockLevel;
+exports.computeDiscountPercent = computeDiscountPercent;
 exports.parseSocialVideoUrl = parseSocialVideoUrl;
 // ---- from packages/shared/src/permissions.ts ----
 // Central permission registry shared by the API (enforcement) and the Web app
@@ -200,6 +202,37 @@ function formatCurrency(amount, currency = "PKR") {
     if (Number.isNaN(value))
         return `${currency} 0`;
     return `${currency} ${new Intl.NumberFormat("en-US").format(value)}`;
+}
+const LOW_STOCK_THRESHOLD = 3;
+// Single source of truth for stock/discount badge logic — the storefront
+// (product cards, product page) and the social post generator both need
+// the exact same "is this a hot deal / low stock / new arrival" answer for
+// a given product, so it's defined once here rather than duplicated in the
+// frontend and backend.
+function computeStockLevel(product) {
+    if (product.status === "SOLD" || product.status === "HIDDEN")
+        return "OUT_OF_STOCK";
+    if (product.status === "RESERVED")
+        return "RESERVED";
+    if (product.variants && product.variants.length > 0) {
+        const total = product.variants.reduce((sum, v) => sum + (v.stockQty ?? 0), 0);
+        if (total <= 0)
+            return "OUT_OF_STOCK";
+        if (total <= LOW_STOCK_THRESHOLD)
+            return "LOW_STOCK";
+    }
+    return "IN_STOCK";
+}
+function computeDiscountPercent(product) {
+    const base = typeof product.basePrice === "string" ? Number(product.basePrice) : product.basePrice;
+    const compareAt = product.compareAtPrice
+        ? typeof product.compareAtPrice === "string"
+            ? Number(product.compareAtPrice)
+            : product.compareAtPrice
+        : null;
+    if (!compareAt || compareAt <= base)
+        return null;
+    return Math.round(((compareAt - base) / compareAt) * 100);
 }
 /** Extracts a normalized video id/embed info from a YouTube, TikTok or Instagram URL. */
 function parseSocialVideoUrl(url) {

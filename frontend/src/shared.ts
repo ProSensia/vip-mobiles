@@ -245,6 +245,48 @@ export function formatCurrency(amount: number | string, currency = "PKR"): strin
   return `${currency} ${new Intl.NumberFormat("en-US").format(value)}`;
 }
 
+export type StockLevel = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "RESERVED";
+
+const LOW_STOCK_THRESHOLD = 3;
+
+export interface BadgeableProduct {
+  status: string;
+  basePrice: number | string;
+  compareAtPrice?: number | string | null;
+  isNewArrival?: boolean;
+  isTrending?: boolean;
+  isBestSeller?: boolean;
+  isPtaApproved?: boolean;
+  variants?: Array<{ stockQty: number }>;
+}
+
+// Single source of truth for stock/discount badge logic — the storefront
+// (product cards, product page) and the social post generator both need
+// the exact same "is this a hot deal / low stock / new arrival" answer for
+// a given product, so it's defined once here rather than duplicated in the
+// frontend and backend.
+export function computeStockLevel(product: BadgeableProduct): StockLevel {
+  if (product.status === "SOLD" || product.status === "HIDDEN") return "OUT_OF_STOCK";
+  if (product.status === "RESERVED") return "RESERVED";
+  if (product.variants && product.variants.length > 0) {
+    const total = product.variants.reduce((sum, v) => sum + (v.stockQty ?? 0), 0);
+    if (total <= 0) return "OUT_OF_STOCK";
+    if (total <= LOW_STOCK_THRESHOLD) return "LOW_STOCK";
+  }
+  return "IN_STOCK";
+}
+
+export function computeDiscountPercent(product: BadgeableProduct): number | null {
+  const base = typeof product.basePrice === "string" ? Number(product.basePrice) : product.basePrice;
+  const compareAt = product.compareAtPrice
+    ? typeof product.compareAtPrice === "string"
+      ? Number(product.compareAtPrice)
+      : product.compareAtPrice
+    : null;
+  if (!compareAt || compareAt <= base) return null;
+  return Math.round(((compareAt - base) / compareAt) * 100);
+}
+
 /** Extracts a normalized video id/embed info from a YouTube, TikTok or Instagram URL. */
 export function parseSocialVideoUrl(url: string): {
   platform: "YOUTUBE" | "TIKTOK" | "INSTAGRAM" | null;

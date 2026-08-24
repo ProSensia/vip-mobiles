@@ -1,38 +1,7 @@
 import { cn } from "@/lib/utils";
+import { computeStockLevel, computeDiscountPercent, type BadgeableProduct, type StockLevel } from "@/shared";
 
-export interface BadgeableProduct {
-  status: string;
-  basePrice: string | number;
-  compareAtPrice?: string | number | null;
-  isNewArrival?: boolean;
-  isTrending?: boolean;
-  isBestSeller?: boolean;
-  isPtaApproved?: boolean;
-  variants?: Array<{ stockQty: number }>;
-}
-
-export type StockLevel = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "RESERVED";
-
-const LOW_STOCK_THRESHOLD = 3;
-
-/** Pure so it's usable from both server and client components without duplicating the logic. */
-export function computeStockLevel(product: BadgeableProduct): StockLevel {
-  if (product.status === "SOLD" || product.status === "HIDDEN") return "OUT_OF_STOCK";
-  if (product.status === "RESERVED") return "RESERVED";
-  if (product.variants && product.variants.length > 0) {
-    const total = product.variants.reduce((sum, v) => sum + (v.stockQty ?? 0), 0);
-    if (total <= 0) return "OUT_OF_STOCK";
-    if (total <= LOW_STOCK_THRESHOLD) return "LOW_STOCK";
-  }
-  return "IN_STOCK";
-}
-
-export function computeDiscountPercent(product: BadgeableProduct): number | null {
-  const base = Number(product.basePrice);
-  const compareAt = product.compareAtPrice ? Number(product.compareAtPrice) : null;
-  if (!compareAt || compareAt <= base) return null;
-  return Math.round(((compareAt - base) / compareAt) * 100);
-}
+export type { BadgeableProduct, StockLevel };
 
 const STOCK_LABEL: Record<StockLevel, string> = {
   IN_STOCK: "In Stock",
