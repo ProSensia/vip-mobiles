@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
@@ -24,14 +25,39 @@ interface NotificationItem {
 // benefit. Only the count is polled continuously; the full list is fetched
 // on demand when the panel opens.
 const POLL_INTERVAL_MS = 45_000;
+const PANEL_WIDTH = 320; // px, matches w-80
+const VIEWPORT_MARGIN = 16;
 
 export function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  // The admin header this button sits in uses backdrop-blur, which makes it
+  // a containing block for position:fixed descendants — a fixed dropdown
+  // nested inside it would resolve against the header's own box, not the
+  // viewport, and get clipped/misplaced on narrow screens. Portaling to
+  // document.body and computing screen coordinates from the button's own
+  // rect sidesteps that entirely and keeps the panel fully on-screen at any
+  // width, anchored near the bell rather than off-screen or overlapping it.
+  const updateCoords = useCallback(() => {
+    const rect = wrapperRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(PANEL_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2);
+    const left = Math.min(
+      Math.max(rect.right - width, VIEWPORT_MARGIN),
+      window.innerWidth - width - VIEWPORT_MARGIN
+    );
+    setCoords({ top: rect.bottom + 8, left, width });
+  }, []);
 
   const refreshCount = useCallback(async () => {
     try {
@@ -50,15 +76,34 @@ export function NotificationBell() {
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(target) &&
+        (!panelRef.current || !panelRef.current.contains(target))
+      ) {
+        setOpen(false);
+      }
     }
     if (open) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    updateCoords();
+    window.addEventListener("resize", updateCoords);
+    window.addEventListener("scroll", updateCoords, true);
+    return () => {
+      window.removeEventListener("resize", updateCoords);
+      window.removeEventListener("scroll", updateCoords, true);
+    };
+  }, [open, updateCoords]);
+
   async function openPanel() {
-    setOpen((o) => !o);
-    if (!open) {
+    const next = !open;
+    setOpen(next);
+    if (next) {
+      updateCoords();
       setLoadingList(true);
       try {
         const { items } = await clientApi.get<{ items: NotificationItem[] }>("/notifications?limit=10");
@@ -85,8 +130,61 @@ export function NotificationBell() {
     if (n.link) router.push(n.link);
   }
 
+  const panel = open && coords && (
+    <div
+      ref={panelRef}
+      style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
+      className="z-50 overflow-hidden rounded-xl border border-ink-600 bg-ink-900 shadow-card"
+    >
+      <div className="flex items-center justify-between border-b border-ink-600 px-4 py-3">
+        <p className="text-sm font-semibold text-cream">Notifications</p>
+        {items.some((n) => !n.isRead) && (
+          <button onClick={markAllRead} className="flex items-center gap-1 text-xs font-medium text-gold-400 hover:underline">
+            <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+          </button>
+        )}
+      </div>
+
+      <div className="max-h-96 overflow-y-auto">
+        {loadingList ? (
+          <p className="p-4 text-center text-sm text-muted">Loading...</p>
+        ) : items.length === 0 ? (
+          <p className="p-4 text-center text-sm text-muted">You&apos;re all caught up.</p>
+        ) : (
+          items.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => handleClick(n)}
+              className={cn(
+                "block w-full border-b border-ink-600/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-ink-800",
+                !n.isRead && "bg-gold-500/5"
+              )}
+            >
+              <div className="flex items-start gap-2">
+                {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold-400" />}
+                <div className={cn("min-w-0 flex-1", n.isRead && "pl-3.5")}>
+                  <p className="truncate text-sm font-medium text-cream">{n.title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.message}</p>
+                  <p className="mt-1 text-[10px] text-muted/70">{formatDate(n.createdAt)}</p>
+                </div>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+
+      <Link
+        href="/admin/notifications"
+        onClick={() => setOpen(false)}
+        className="block border-t border-ink-600 px-4 py-2.5 text-center text-xs font-medium text-gold-400 hover:bg-ink-800"
+      >
+        View all notifications
+      </Link>
+    </div>
+  );
+
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative" ref={wrapperRef}>
       <button
         onClick={openPanel}
         aria-label="Notifications"
@@ -99,55 +197,7 @@ export function NotificationBell() {
           </span>
         )}
       </button>
-
-      {open && (
-        <div className="fixed left-1/2 top-16 z-50 w-[calc(100vw-2rem)] max-w-xs -translate-x-1/2 overflow-hidden rounded-xl border border-ink-600 bg-ink-900 shadow-card sm:absolute sm:left-auto sm:top-11 sm:right-0 sm:w-80 sm:max-w-none sm:translate-x-0">
-          <div className="flex items-center justify-between border-b border-ink-600 px-4 py-3">
-            <p className="text-sm font-semibold text-cream">Notifications</p>
-            {items.some((n) => !n.isRead) && (
-              <button onClick={markAllRead} className="flex items-center gap-1 text-xs font-medium text-gold-400 hover:underline">
-                <CheckCheck className="h-3.5 w-3.5" /> Mark all read
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {loadingList ? (
-              <p className="p-4 text-center text-sm text-muted">Loading...</p>
-            ) : items.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted">You&apos;re all caught up.</p>
-            ) : (
-              items.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => handleClick(n)}
-                  className={cn(
-                    "block w-full border-b border-ink-600/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-ink-800",
-                    !n.isRead && "bg-gold-500/5"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    {!n.isRead && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold-400" />}
-                    <div className={cn("min-w-0 flex-1", n.isRead && "pl-3.5")}>
-                      <p className="truncate text-sm font-medium text-cream">{n.title}</p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.message}</p>
-                      <p className="mt-1 text-[10px] text-muted/70">{formatDate(n.createdAt)}</p>
-                    </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-
-          <Link
-            href="/admin/notifications"
-            onClick={() => setOpen(false)}
-            className="block border-t border-ink-600 px-4 py-2.5 text-center text-xs font-medium text-gold-400 hover:bg-ink-800"
-          >
-            View all notifications
-          </Link>
-        </div>
-      )}
+      {mounted && panel && createPortal(panel, document.body)}
     </div>
   );
 }
