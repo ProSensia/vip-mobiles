@@ -498,14 +498,20 @@ model SocialCreative {
   platform    SocialPlatform
   config      Json
   imageUrl    String
+  thumbUrl    String?
   createdById String?
   createdAt   DateTime       @default(now())
+  // Soft-delete: keeps the row (and its AuditLog trail) for history/audit
+  // purposes while the actual image files are removed from disk and the
+  // entry drops out of every normal listing.
+  deletedAt   DateTime?
 
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([platform])
+  @@index([deletedAt, createdAt])
 }
 
 // ---------------------------------------------------------------------------

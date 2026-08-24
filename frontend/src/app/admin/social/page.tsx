@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { useFetch } from "@/lib/useFetch";
 import { clientApi, ClientApiError } from "@/lib/clientApi";
 import { cn } from "@/lib/utils";
+import { PostHistorySection } from "@/components/admin/social/PostHistorySection";
 
 const TOGGLES = [
   { key: "showLogo", label: "Store Logo" },
@@ -30,9 +31,10 @@ const FORMATS = [
 
 type FormatId = (typeof FORMATS)[number]["id"];
 
-const TEMPLATES: Array<{ id: "classic" | "bold"; label: string; hint: string; availableFor: FormatId[] }> = [
+const TEMPLATES: Array<{ id: "classic" | "bold" | "collage"; label: string; hint: string; availableFor: FormatId[] }> = [
   { id: "classic", label: "Classic", hint: "Photo + details side by side", availableFor: ["square", "portrait", "story"] },
   { id: "bold", label: "Bold", hint: "Centered, price-forward", availableFor: ["square"] },
+  { id: "collage", label: "Collage", hint: "Multi-photo spread", availableFor: ["square"] },
 ];
 
 function SocialGeneratorInner() {
@@ -243,6 +245,10 @@ function SocialGeneratorInner() {
             )}
           </CardBody>
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <PostHistorySection onSelectResult={setResult} />
       </div>
     </div>
   );

@@ -18,5 +18,16 @@ class LocalDiskStorage {
     publicUrl(relativePath) {
         return `/uploads/${relativePath.replace(/\\/g, "/")}`;
     }
+    async delete(publicUrl) {
+        const relativePath = publicUrl.replace(/^\/uploads\//, "");
+        const fullPath = path_1.default.join(this.root, relativePath);
+        try {
+            await fs_1.default.promises.unlink(fullPath);
+        }
+        catch (err) {
+            if (err?.code !== "ENOENT")
+                throw err;
+        }
+    }
 }
 exports.storage = new LocalDiskStorage();

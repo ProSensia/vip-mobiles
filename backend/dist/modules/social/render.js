@@ -7,6 +7,7 @@ exports.BRAND = void 0;
 exports.renderInstagramCreative = renderInstagramCreative;
 exports.renderStoryCreative = renderStoryCreative;
 exports.renderBoldCreative = renderBoldCreative;
+exports.renderCollageCreative = renderCollageCreative;
 exports.formatCreativePrice = formatCreativePrice;
 const sharp_1 = __importDefault(require("sharp"));
 const fs_1 = __importDefault(require("fs"));
@@ -146,6 +147,20 @@ function textLayerSvg(opts) {
     const titleLines = (0, svgUtils_1.wrapText)(opts.title, estimateMaxChars(availableWidth, titleFontSize), 2);
     let y = opts.textBlockTop;
     const parts = [];
+    // Badges sit in the text block, just above the title — reference designs
+    // show them here rather than overlaid on the product photo, which reads
+    // cleaner and keeps the photo itself undecorated.
+    const badges = (opts.badges ?? []).slice(0, 3);
+    if (badges.length > 0) {
+        const badgeFontSize = 22;
+        const badgePillHeight = badgeFontSize + 22; // matches badgeStackSvg's own rect height
+        parts.push(badgeStackSvg(badges, x, y, { fontSize: badgeFontSize, align }));
+        // y becomes the title's baseline next, not its top edge — clear the
+        // badge's bottom edge by the pill height, a gap, AND the title's own
+        // cap-height above its baseline (~0.72 * font size), or the two visibly
+        // overlapped (caught by rendering this and looking at the output).
+        y += badgePillHeight + 24 + Math.round(titleFontSize * 0.72);
+    }
     for (const line of titleLines) {
         parts.push(`<text x="${x}" y="${y}" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="${titleFontSize}" fill="${shared_1.BRAND_COLORS.cream}" text-anchor="${anchor}">${(0, svgUtils_1.escapeXml)(line)}</text>`);
         y += titleFontSize + 10;
@@ -215,22 +230,26 @@ async function renderInstagramCreative(product, mainImageUrl, supportingImageUrl
     // photo-right/text-left column split) avoids the text column ever having
     // to fight the photo for horizontal space, which is what caused titles to
     // visually overlap the product photo in earlier iterations of this layout.
-    const photoSize = Math.round(width * 0.46);
+    // The photo shrinks when supporting thumbnails are also shown below it —
+    // full size plus a thumbnail row left too little room for the text block
+    // and ran the CTA button into the footer (caught by rendering it).
+    const showSupporting = config.showSupportingImages !== false && supportingImageUrls.length > 0;
+    const photoSize = Math.round(width * (showSupporting ? 0.4 : 0.46));
     const photoX = width - photoSize - 44;
     const photoY = 96;
     const mainBuf = await readImageBuffer(mainImageUrl);
     const roundedMain = await roundedImage(mainBuf, photoSize, photoSize, 28);
     composites.push({ input: roundedMain, left: photoX, top: photoY });
-    if (config.showSupportingImages !== false && supportingImageUrls.length > 0) {
-        const thumbSize = 96;
+    const thumbSize = 76;
+    if (showSupporting) {
         let tx = photoX;
-        const ty = photoY + photoSize + 16;
+        const ty = photoY + photoSize + 12;
         for (const url of supportingImageUrls.slice(0, 3)) {
             try {
                 const buf = await readImageBuffer(url);
-                const rounded = await roundedImage(buf, thumbSize, thumbSize, 14);
+                const rounded = await roundedImage(buf, thumbSize, thumbSize, 12);
                 composites.push({ input: rounded, left: tx, top: ty });
-                tx += thumbSize + 12;
+                tx += thumbSize + 10;
             }
             catch {
                 // skip unreadable supporting image
@@ -240,11 +259,11 @@ async function renderInstagramCreative(product, mainImageUrl, supportingImageUrl
     if (config.showLogo !== false) {
         composites.push(...(await logoLockupComposite(48, 48)));
     }
-    if (badges.length > 0) {
-        const badgeSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${badgeStackSvg(badges, photoX + 14, photoY + 14, { fontSize: 22 })}</svg>`;
-        composites.push({ input: Buffer.from(badgeSvg), left: 0, top: 0 });
-    }
-    const textTop = photoY + photoSize + 64;
+    // When supporting thumbnails are shown, they extend below the main photo
+    // (photoSize is the *photo's* height, not the whole visual block) — the
+    // text block must clear that row too, not just the main photo.
+    const visualBlockBottom = photoY + photoSize + (showSupporting ? 12 + thumbSize : 0);
+    const textTop = visualBlockBottom + (showSupporting ? 40 : 56);
     const textSvg = textLayerSvg({
         width,
         height,
@@ -254,6 +273,7 @@ async function renderInstagramCreative(product, mainImageUrl, supportingImageUrl
         stockLine: product.stockLine,
         description: config.description ?? product.description ?? null,
         ctaText: config.showCTA !== false ? config.ctaText || "Available Now – DM to Order" : null,
+        badges,
         showPrice: config.showPrice !== false,
         showDescription: config.showDescription !== false,
         showCTA: config.showCTA !== false,
@@ -293,10 +313,6 @@ async function renderStoryCreative(product, mainImageUrl, config) {
         if (logo)
             composites.push({ input: logo, left: Math.round((width - 96) / 2), top: 48 });
     }
-    if (badges.length > 0) {
-        const badgeSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${badgeStackSvg(badges, photoX + 24, photoY + 24)}</svg>`;
-        composites.push({ input: Buffer.from(badgeSvg), left: 0, top: 0 });
-    }
     const textSvg = textLayerSvg({
         width,
         height,
@@ -306,6 +322,7 @@ async function renderStoryCreative(product, mainImageUrl, config) {
         stockLine: product.stockLine,
         description: config.description ?? product.description ?? null,
         ctaText: config.showCTA !== false ? config.ctaText || "Tap the Link in Bio" : null,
+        badges,
         showPrice: config.showPrice !== false,
         showDescription: config.showDescription !== false,
         showCTA: config.showCTA !== false,
@@ -333,7 +350,12 @@ async function renderBoldCreative(product, mainImageUrl, config) {
     const badges = config.showBadges !== false ? (product.badges ?? []).slice(0, 3) : [];
     const base = await (0, sharp_1.default)(Buffer.from(backgroundSvg(width, height, config.gradientId))).png().toBuffer();
     const composites = [];
-    const photoSize = Math.round(width * 0.56);
+    // Sized to reliably leave room below for badges + title + price + stock +
+    // CTA — badges now render as part of the text flow (see textLayerSvg)
+    // rather than a separate overlay, so this needs real headroom for them,
+    // not just a small fixed offset. 0.56 (the original size) overflowed the
+    // CTA into the footer once badges were included, caught by rendering it.
+    const photoSize = Math.round(width * 0.48);
     const photoX = Math.round((width - photoSize) / 2);
     const photoY = 64;
     const mainBuf = await readImageBuffer(mainImageUrl);
@@ -344,11 +366,7 @@ async function renderBoldCreative(product, mainImageUrl, config) {
         if (logo)
             composites.push({ input: logo, left: Math.round((width - 72) / 2), top: 16 });
     }
-    if (badges.length > 0) {
-        const badgeSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${badgeStackSvg(badges, width / 2, photoY + photoSize + 28, { align: "center", fontSize: 24 })}</svg>`;
-        composites.push({ input: Buffer.from(badgeSvg), left: 0, top: 0 });
-    }
-    const textTop = photoY + photoSize + (badges.length > 0 ? 118 : 84);
+    const textTop = photoY + photoSize + 60;
     const textSvg = textLayerSvg({
         width,
         height,
@@ -358,12 +376,87 @@ async function renderBoldCreative(product, mainImageUrl, config) {
         stockLine: product.stockLine,
         description: config.description ?? product.description ?? null,
         ctaText: config.showCTA !== false ? config.ctaText || "Available Now – DM to Order" : null,
+        badges,
         showPrice: config.showPrice !== false,
         showDescription: config.showDescription !== false,
         showCTA: config.showCTA !== false,
         textBlockTop: textTop,
         availableHeight: height - textTop - 100,
         align: "center",
+    });
+    composites.push({ input: Buffer.from(textSvg), left: 0, top: 0 });
+    if (product.websiteUrl || product.whatsappNumber) {
+        composites.push({ input: Buffer.from(contactFooterSvg(width, height, product.websiteUrl, product.whatsappNumber)), left: 0, top: 0 });
+    }
+    return (0, sharp_1.default)(base).composite(composites).png({ quality: 92 }).toBuffer();
+}
+/**
+ * "Collage" template — a large hero photo plus up to 3 supporting shots
+ * arranged beside it, directly inspired by the strongest visual signature
+ * in the provided reference designs (multi-photo product spreads rather
+ * than a single isolated shot). Square format only.
+ */
+async function renderCollageCreative(product, mainImageUrl, supportingImageUrls, config) {
+    const { width, height } = DIMENSIONS.INSTAGRAM_SQUARE;
+    const badges = config.showBadges !== false ? (product.badges ?? []).slice(0, 3) : [];
+    const supporting = (config.showSupportingImages !== false ? supportingImageUrls : []).slice(0, 3);
+    const base = await (0, sharp_1.default)(Buffer.from(backgroundSvg(width, height, config.gradientId))).png().toBuffer();
+    const composites = [];
+    const collageTop = 96;
+    const collageHeight = 460;
+    const collageLeft = 44;
+    const collageRight = width - 44;
+    const gap = 14;
+    if (supporting.length === 0) {
+        // No supporting shots to collage with — fall back to a single large,
+        // centered hero rather than an empty grid.
+        const size = collageHeight;
+        const mainBuf = await readImageBuffer(mainImageUrl);
+        const rounded = await roundedImage(mainBuf, size, size, 28);
+        composites.push({ input: rounded, left: Math.round((width - size) / 2), top: collageTop });
+    }
+    else {
+        const heroWidth = Math.round((collageRight - collageLeft) * 0.58);
+        const mainBuf = await readImageBuffer(mainImageUrl);
+        const heroRounded = await roundedImage(mainBuf, heroWidth, collageHeight, 28);
+        composites.push({ input: heroRounded, left: collageLeft, top: collageTop });
+        const sideWidth = collageRight - collageLeft - heroWidth - gap;
+        const sideX = collageLeft + heroWidth + gap;
+        const cellHeight = Math.round((collageHeight - gap * (supporting.length - 1)) / supporting.length);
+        let cy = collageTop;
+        for (const url of supporting) {
+            try {
+                const buf = await readImageBuffer(url);
+                const rounded = await roundedImage(buf, sideWidth, cellHeight, 20);
+                composites.push({ input: rounded, left: sideX, top: cy });
+                cy += cellHeight + gap;
+            }
+            catch {
+                // skip unreadable supporting image, leave the gap rather than failing the whole creative
+                cy += cellHeight + gap;
+            }
+        }
+    }
+    if (config.showLogo !== false) {
+        composites.push(...(await logoLockupComposite(48, 48)));
+    }
+    const textTop = collageTop + collageHeight + 56;
+    const textSvg = textLayerSvg({
+        width,
+        height,
+        title: product.title,
+        price: config.showPrice !== false ? product.price : null,
+        compareAtPrice: config.showPrice !== false ? product.compareAtPrice : null,
+        stockLine: product.stockLine,
+        description: config.description ?? product.description ?? null,
+        ctaText: config.showCTA !== false ? config.ctaText || "Available Now – DM to Order" : null,
+        badges,
+        showPrice: config.showPrice !== false,
+        showDescription: config.showDescription !== false,
+        showCTA: config.showCTA !== false,
+        textBlockTop: textTop,
+        availableHeight: height - textTop - 100,
+        align: "left",
     });
     composites.push({ input: Buffer.from(textSvg), left: 0, top: 0 });
     if (product.websiteUrl || product.whatsappNumber) {
