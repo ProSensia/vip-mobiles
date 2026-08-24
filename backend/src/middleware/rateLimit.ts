@@ -25,3 +25,14 @@ export const publicFormLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many requests. Please try again shortly." },
 });
+
+// Shopping assistant chat: a real conversation needs more turns than a
+// one-shot form, but each turn still costs a couple of indexed DB queries —
+// capped well below anything that could be used to scrape the catalog.
+export const assistantLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "You're sending messages a bit fast — please wait a moment and try again." },
+});

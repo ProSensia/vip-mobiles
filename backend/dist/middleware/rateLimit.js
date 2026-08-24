@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.publicFormLimiter = exports.authLimiter = exports.generalLimiter = void 0;
+exports.assistantLimiter = exports.publicFormLimiter = exports.authLimiter = exports.generalLimiter = void 0;
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const env_1 = require("../env");
 exports.generalLimiter = (0, express_rate_limit_1.default)({
@@ -27,4 +27,14 @@ exports.publicFormLimiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many requests. Please try again shortly." },
+});
+// Shopping assistant chat: a real conversation needs more turns than a
+// one-shot form, but each turn still costs a couple of indexed DB queries —
+// capped well below anything that could be used to scrape the catalog.
+exports.assistantLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 10 * 60 * 1000,
+    max: 40,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "You're sending messages a bit fast — please wait a moment and try again." },
 });

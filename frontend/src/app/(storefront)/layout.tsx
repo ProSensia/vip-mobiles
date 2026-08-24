@@ -1,6 +1,7 @@
 import { Header } from "@/components/storefront/Header";
 import { Footer } from "@/components/storefront/Footer";
 import { CompareBar } from "@/components/storefront/CompareBar";
+import { ChatAssistant } from "@/components/storefront/ChatAssistant";
 
 export default function StorefrontLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       <main className="flex-1 pb-16">{children}</main>
       <Footer />
       <CompareBar />
+      <ChatAssistant />
     </div>
   );
 }

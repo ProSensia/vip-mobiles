@@ -26,6 +26,7 @@ import mediaRoutes from "./modules/media/routes";
 import systemRoutes from "./modules/system/routes";
 import notificationRoutes from "./modules/notifications/routes";
 import publicReviewRoutes from "./modules/reviews/publicRoutes";
+import assistantRoutes from "./modules/assistant/routes";
 
 export function createApp() {
   const app = express();
@@ -90,6 +91,7 @@ export function createApp() {
   app.use("/api/system", systemRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/reviews", publicReviewRoutes);
+  app.use("/api/assistant", assistantRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

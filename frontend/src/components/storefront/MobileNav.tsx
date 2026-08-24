@@ -15,7 +15,7 @@ export function MobileNav() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 bg-ink-950/98 p-6">
+        <div className="fixed inset-0 z-[100] isolate overflow-y-auto bg-ink-950 backdrop-blur-xl p-6" style={{ backgroundColor: "#08080A" }}>
           <div className="flex items-center justify-between">
             <span className="font-display text-lg font-bold text-gold-400">Menu</span>
             <button onClick={() => setOpen(false)} aria-label="Close menu" className="rounded-lg p-2 text-cream hover:bg-ink-800">
