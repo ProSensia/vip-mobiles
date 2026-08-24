@@ -19,6 +19,17 @@ const shared_1 = require("../../shared");
 const env_1 = require("../../env");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
+// Readable-but-strong: e.g. "Kx7m-Qp2v-9WzR" — three groups from a charset
+// with no ambiguous characters (no 0/O/1/l/I), joined so it's easy to read
+// off a screen or dictate over the phone, backed by crypto.randomBytes so
+// it's not guessable.
+const TEMP_PASSWORD_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+function generateTempPassword() {
+    const groups = Array.from({ length: 3 }, () => Array.from(crypto_1.default.randomBytes(4))
+        .map((b) => TEMP_PASSWORD_CHARS[b % TEMP_PASSWORD_CHARS.length])
+        .join(""));
+    return groups.join("-");
+}
 const roleEnum = zod_1.z.enum([
     shared_1.ROLES.SUPER_ADMIN,
     shared_1.ROLES.ADMIN,
@@ -61,7 +72,12 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE
     const existing = await prisma_1.prisma.user.findUnique({ where: { email: req.body.email } });
     if (existing)
         throw new errorHandler_1.ApiError(409, "A user with this email already exists");
-    const tempPassword = crypto_1.default.randomBytes(24).toString("hex");
+    // A readable-but-strong temp password — shown once to the Super Admin
+    // as a fallback in case the setup email doesn't arrive (this hosting
+    // account's mail delivery has been unreliable), not sent anywhere in
+    // plaintext itself. The account is forced to change it before it can be
+    // used for anything (mustChangePassword below).
+    const tempPassword = generateTempPassword();
     const passwordHash = await (0, password_1.hashPassword)(tempPassword);
     const user = await prisma_1.prisma.user.create({
         data: {
@@ -69,6 +85,7 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE
             email: req.body.email,
             role: req.body.role,
             passwordHash,
+            mustChangePassword: true,
             branchId: req.body.branchId || null,
             staffProfile: req.body.position ? { create: { position: req.body.position } } : undefined,
         },
@@ -90,7 +107,7 @@ router.post("/", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.STAFF_MANAGE
         message: `${user.name} was added as ${user.role.replace(/_/g, " ")}`,
         link: `/admin/staff`,
     }, req.user.id);
-    res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, tempPassword });
 }));
 const updateUserSchema = zod_1.z.object({
     name: zod_1.z.string().min(2).max(150).optional(),

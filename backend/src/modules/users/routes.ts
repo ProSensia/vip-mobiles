@@ -16,6 +16,20 @@ import { env } from "../../env";
 const router = Router();
 router.use(authenticate);
 
+// Readable-but-strong: e.g. "Kx7m-Qp2v-9WzR" — three groups from a charset
+// with no ambiguous characters (no 0/O/1/l/I), joined so it's easy to read
+// off a screen or dictate over the phone, backed by crypto.randomBytes so
+// it's not guessable.
+const TEMP_PASSWORD_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+function generateTempPassword(): string {
+  const groups = Array.from({ length: 3 }, () =>
+    Array.from(crypto.randomBytes(4))
+      .map((b) => TEMP_PASSWORD_CHARS[b % TEMP_PASSWORD_CHARS.length])
+      .join("")
+  );
+  return groups.join("-");
+}
+
 const roleEnum = z.enum([
   ROLES.SUPER_ADMIN,
   ROLES.ADMIN,
@@ -70,7 +84,12 @@ router.post(
     const existing = await prisma.user.findUnique({ where: { email: req.body.email } });
     if (existing) throw new ApiError(409, "A user with this email already exists");
 
-    const tempPassword = crypto.randomBytes(24).toString("hex");
+    // A readable-but-strong temp password — shown once to the Super Admin
+    // as a fallback in case the setup email doesn't arrive (this hosting
+    // account's mail delivery has been unreliable), not sent anywhere in
+    // plaintext itself. The account is forced to change it before it can be
+    // used for anything (mustChangePassword below).
+    const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
 
     const user = await prisma.user.create({
@@ -79,6 +98,7 @@ router.post(
         email: req.body.email,
         role: req.body.role,
         passwordHash,
+        mustChangePassword: true,
         branchId: req.body.branchId || null,
         staffProfile: req.body.position ? { create: { position: req.body.position } } : undefined,
       },
@@ -108,7 +128,7 @@ router.post(
       req.user!.id
     );
 
-    res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, tempPassword });
   })
 );
 

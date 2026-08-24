@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { Star, ShieldCheck } from "lucide-react";
 import { ReviewForm } from "./ReviewForm";
 
 interface Review {
@@ -6,6 +6,8 @@ interface Review {
   customerName: string;
   rating: number;
   comment?: string | null;
+  photoUrl?: string | null;
+  isVerified?: boolean;
   createdAt: string;
 }
 
@@ -38,10 +40,22 @@ export function ReviewsSection({ reviews, productId }: { reviews: Review[]; prod
         {reviews.map((r) => (
           <div key={r.id} className="rounded-xl2 border border-ink-600 bg-ink-800/40 p-4">
             <div className="flex items-center justify-between">
-              <span className="font-medium text-cream">{r.customerName}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-cream">{r.customerName}</span>
+                {r.isVerified && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                    <ShieldCheck className="h-3 w-3" /> Verified Purchase
+                  </span>
+                )}
+              </div>
               <Stars rating={r.rating} />
             </div>
             {r.comment && <p className="mt-2 text-sm text-muted">{r.comment}</p>}
+            {r.photoUrl && (
+              <a href={r.photoUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block">
+                <img src={r.photoUrl} alt="" className="h-20 w-20 rounded-lg object-cover" />
+              </a>
+            )}
           </div>
         ))}
         {reviews.length === 0 && <p className="text-sm text-muted">No reviews yet — be the first to share your experience.</p>}

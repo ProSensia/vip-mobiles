@@ -10,6 +10,7 @@ export interface SessionUser {
   role: RoleName;
   avatarUrl?: string | null;
   branch?: { id: string; name: string } | null;
+  mustChangePassword?: boolean;
   permissions: Permission[];
 }
 

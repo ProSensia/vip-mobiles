@@ -1,15 +1,31 @@
 import { Router } from "express";
 import { z } from "zod";
+import crypto from "crypto";
+import QRCode from "qrcode";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler, ApiError } from "../../middleware/errorHandler";
 import { validateBody } from "../../middleware/validate";
 import { authenticate, requirePermission } from "../../middleware/auth";
+import { imageUpload } from "../../middleware/upload";
+import { processGenericImage } from "../../utils/image";
 import { recordAudit } from "../../utils/audit";
 import { notifyUsersWithPermission } from "../../utils/notifications";
 import { hasPermission, PERMISSIONS } from "../../shared";
+import { env } from "../../env";
 
 const router = Router();
 router.use(authenticate);
+
+/** Own sale, or has the cross-staff view permission — same rule the list/analytics endpoints already use. */
+async function loadOwnedSale(req: import("express").Request, id: string) {
+  const sale = await prisma.sale.findUnique({ where: { id } });
+  if (!sale) throw new ApiError(404, "Sale not found");
+  const canAccessAll = hasPermission(req.user!, PERMISSIONS.SALES_VIEW_ALL);
+  if (!canAccessAll && sale.staffId !== req.user!.id) {
+    throw new ApiError(403, "You do not have access to this sale");
+  }
+  return sale;
+}
 
 const createSaleSchema = z.object({
   productId: z.string().min(1),
@@ -198,6 +214,64 @@ router.get(
       counts: { available, reserved, sold, hidden, total: available + reserved + sold + hidden },
       availableInventoryValue: valueAgg._sum.basePrice ?? 0,
     });
+  })
+);
+
+// Bill/invoice photo — kept private (never exposed on the public storefront),
+// viewable only to the sale's own staff or SALES_VIEW_ALL holders via loadOwnedSale.
+router.post(
+  "/:id/bill",
+  requirePermission(PERMISSIONS.SALES_RECORD),
+  imageUpload.single("bill"),
+  asyncHandler(async (req, res) => {
+    const sale = await loadOwnedSale(req, req.params.id);
+    if (!req.file) throw new ApiError(400, "No image was uploaded");
+
+    const { url } = await processGenericImage(req.file.buffer, "sales-bills", 1600);
+    const updated = await prisma.sale.update({ where: { id: sale.id }, data: { billUrl: url } });
+    recordAudit(req, { action: "sale.bill.uploaded", entityType: "Sale", entityId: sale.id });
+
+    res.json({ sale: updated });
+  })
+);
+
+// Get-or-create the review link for this sale. Idempotent — a QR code once
+// printed/shared must keep working, so re-requesting returns the same token
+// rather than rotating it.
+router.post(
+  "/:id/review-link",
+  requirePermission(PERMISSIONS.SALES_RECORD),
+  asyncHandler(async (req, res) => {
+    const sale = await loadOwnedSale(req, req.params.id);
+
+    let token = sale.reviewToken;
+    if (!token) {
+      token = crypto.randomBytes(24).toString("base64url");
+      await prisma.sale.update({ where: { id: sale.id }, data: { reviewToken: token } });
+    }
+
+    res.json({
+      token,
+      reviewUrl: `${env.WEB_APP_URL}/review/${token}`,
+      alreadySubmitted: !!sale.reviewSubmittedAt,
+    });
+  })
+);
+
+// PNG QR code for the review link — a plain <img src> so it prints reliably
+// with no client-side rendering dependency (works on any device/connection).
+router.get(
+  "/:id/review-qr.png",
+  requirePermission(PERMISSIONS.SALES_RECORD),
+  asyncHandler(async (req, res) => {
+    const sale = await loadOwnedSale(req, req.params.id);
+    if (!sale.reviewToken) throw new ApiError(400, "Generate the review link first");
+
+    const reviewUrl = `${env.WEB_APP_URL}/review/${sale.reviewToken}`;
+    const png = await QRCode.toBuffer(reviewUrl, { type: "png", width: 480, margin: 1 });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(png);
   })
 );
 

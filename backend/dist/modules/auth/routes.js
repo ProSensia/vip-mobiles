@@ -17,6 +17,7 @@ const mailer_1 = require("../../lib/mailer");
 const audit_1 = require("../../utils/audit");
 const shared_1 = require("../../shared");
 const env_1 = require("../../env");
+const captcha_1 = require("../../utils/captcha");
 const router = (0, express_1.Router)();
 const cookieOpts = {
     httpOnly: true,
@@ -39,20 +40,50 @@ async function issueSession(res, userId, role, permissions) {
 const loginSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
     password: zod_1.z.string().min(1),
+    captchaId: zod_1.z.string().min(1),
+    captchaAnswer: zod_1.z.coerce.number(),
 });
+const LOCK_THRESHOLD = 3;
+const LOCK_MINUTES = 30;
+router.get("/captcha", (0, errorHandler_1.asyncHandler)(async (_req, res) => {
+    res.json((0, captcha_1.createCaptcha)());
+}));
 router.post("/login", rateLimit_1.authLimiter, (0, validate_1.validateBody)(loginSchema), (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, captchaId, captchaAnswer } = req.body;
+    if (!(0, captcha_1.verifyCaptcha)(captchaId, captchaAnswer)) {
+        (0, audit_1.recordAudit)(req, { action: "auth.login.blocked", entityType: "User", entityId: email, meta: { reason: "captcha" } });
+        throw new errorHandler_1.ApiError(400, "Incorrect answer to the verification question. Please try again.");
+    }
     const user = await prisma_1.prisma.user.findUnique({ where: { email } });
     if (!user || !user.isActive) {
         throw new errorHandler_1.ApiError(401, "Invalid email or password");
     }
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+        const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60_000);
+        (0, audit_1.recordAudit)(req, { action: "auth.login.blocked", entityType: "User", entityId: user.id, meta: { reason: "locked", minutesLeft } });
+        throw new errorHandler_1.ApiError(423, `Too many failed attempts. Try again in ${minutesLeft} minute${minutesLeft === 1 ? "" : "s"}.`);
+    }
     const valid = await (0, password_1.verifyPassword)(password, user.passwordHash);
     if (!valid) {
-        (0, audit_1.recordAudit)(req, { action: "auth.login.failed", entityType: "User", entityId: user.id });
+        const attempts = user.failedLoginAttempts + 1;
+        const lockingNow = attempts >= LOCK_THRESHOLD;
+        await prisma_1.prisma.user.update({
+            where: { id: user.id },
+            data: lockingNow
+                ? { failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) }
+                : { failedLoginAttempts: attempts },
+        });
+        (0, audit_1.recordAudit)(req, { action: "auth.login.failed", entityType: "User", entityId: user.id, meta: { attempts, locked: lockingNow } });
+        if (lockingNow) {
+            throw new errorHandler_1.ApiError(423, `Too many failed attempts. Account locked for ${LOCK_MINUTES} minutes.`);
+        }
         throw new errorHandler_1.ApiError(401, "Invalid email or password");
     }
     await issueSession(res, user.id, user.role, user.permissions);
-    await prisma_1.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    await prisma_1.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+    });
     req.user = { id: user.id, role: user.role, permissions: user.permissions };
     (0, audit_1.recordAudit)(req, { action: "auth.login.success", entityType: "User", entityId: user.id });
     res.json({
@@ -62,6 +93,7 @@ router.post("/login", rateLimit_1.authLimiter, (0, validate_1.validateBody)(logi
             email: user.email,
             role: user.role,
             avatarUrl: user.avatarUrl,
+            mustChangePassword: user.mustChangePassword,
             permissions: (0, shared_1.effectivePermissions)({ role: user.role, permissions: user.permissions }),
         },
     });
@@ -108,6 +140,7 @@ router.get("/me", auth_1.authenticate, (0, errorHandler_1.asyncHandler)(async (r
             role: user.role,
             avatarUrl: user.avatarUrl,
             branch: user.branch ? { id: user.branch.id, name: user.branch.name } : null,
+            mustChangePassword: user.mustChangePassword,
             permissions: (0, shared_1.effectivePermissions)({ role: user.role, permissions: user.permissions }),
         },
     });
@@ -146,7 +179,7 @@ router.post("/reset-password", rateLimit_1.authLimiter, (0, validate_1.validateB
     }
     const passwordHash = await (0, password_1.hashPassword)(req.body.newPassword);
     await prisma_1.prisma.$transaction([
-        prisma_1.prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+        prisma_1.prisma.user.update({ where: { id: record.userId }, data: { passwordHash, mustChangePassword: false, failedLoginAttempts: 0, lockedUntil: null } }),
         prisma_1.prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
         prisma_1.prisma.refreshToken.updateMany({
             where: { userId: record.userId, revokedAt: null },
@@ -168,7 +201,7 @@ router.post("/change-password", auth_1.authenticate, (0, validate_1.validateBody
     if (!valid)
         throw new errorHandler_1.ApiError(400, "Current password is incorrect");
     const passwordHash = await (0, password_1.hashPassword)(req.body.newPassword);
-    await prisma_1.prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await prisma_1.prisma.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false } });
     (0, audit_1.recordAudit)(req, { action: "auth.password.changed", entityType: "User", entityId: user.id });
     res.json({ ok: true });
 }));

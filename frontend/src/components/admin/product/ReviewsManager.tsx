@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Star, Trash2, Check, Plus } from "lucide-react";
+import { Star, Trash2, Check, Plus, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 import { clientApi, ClientApiError } from "@/lib/clientApi";
@@ -12,6 +12,8 @@ interface Review {
   customerName: string;
   rating: number;
   comment?: string | null;
+  photoUrl?: string | null;
+  isVerified?: boolean;
   isApproved: boolean;
 }
 
@@ -101,14 +103,26 @@ export function ReviewsManager({ productId, reviews, onChange }: { productId: st
 function ReviewRow({ review, onApprove, onDelete }: { review: Review; onApprove?: () => void; onDelete: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-ink-600 bg-ink-800/40 p-3">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-cream">{review.customerName}</span>
-          <div className="flex">{Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`h-3.5 w-3.5 ${i < review.rating ? "fill-gold-400 text-gold-400" : "text-ink-600"}`} />)}</div>
+      <div className="flex items-start gap-3">
+        {review.photoUrl && (
+          <a href={review.photoUrl} target="_blank" rel="noreferrer">
+            <img src={review.photoUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+          </a>
+        )}
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-cream">{review.customerName}</span>
+            <div className="flex">{Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`h-3.5 w-3.5 ${i < review.rating ? "fill-gold-400 text-gold-400" : "text-ink-600"}`} />)}</div>
+            {review.isVerified && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                <ShieldCheck className="h-3 w-3" /> Verified Purchase
+              </span>
+            )}
+          </div>
+          {review.comment && <p className="mt-1 text-xs text-muted">{review.comment}</p>}
         </div>
-        {review.comment && <p className="mt-1 text-xs text-muted">{review.comment}</p>}
       </div>
-      <div className="flex gap-2">
+      <div className="flex shrink-0 gap-2">
         {onApprove && <button onClick={onApprove}><Check className="h-4 w-4 text-emerald-400" /></button>}
         <button onClick={onDelete}><Trash2 className="h-4 w-4 text-red-400" /></button>
       </div>

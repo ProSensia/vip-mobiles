@@ -102,6 +102,14 @@ model User {
   avatarUrl    String?
   branchId     String?
   lastLoginAt  DateTime?
+  // Login lockout: 3 consecutive wrong passwords locks the account for 30
+  // minutes (checked/enforced in modules/auth/routes.ts). Reset to 0/null
+  // on any successful login.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  // Set on accounts Super Admin creates with a generated temp password;
+  // cleared the moment the user successfully changes their password.
+  mustChangePassword  Boolean   @default(false)
   // Per-user opt-out for non-critical notification types, e.g.
   // { "BUY_REQUEST_NEW": false } — absent/true means enabled. Critical
   // types (referrals directly assigned to this user, system notices)
@@ -348,14 +356,20 @@ model ProductVideo {
 model Review {
   id           String   @id @default(cuid())
   productId    String
+  saleId       String?  @unique
   customerName String   @db.VarChar(120)
   rating       Int
   comment      String?  @db.Text
+  photoUrl     String?
+  // True when submitted via the QR link tied to an actual completed sale
+  // (Sale.reviewToken) rather than the open storefront review form.
+  isVerified   Boolean  @default(false)
   isApproved   Boolean  @default(false)
   isDemo       Boolean  @default(false)
   createdAt    DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sale    Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([isApproved])
@@ -474,6 +488,14 @@ model Sale {
   customerContact String?  @db.VarChar(150)
   saleDate        DateTime @default(now())
   notes           String?  @db.Text
+  // Bill/invoice/receipt photo — kept private (never exposed on the public
+  // storefront), only visible to staff with sales permissions.
+  billUrl         String?
+  // Unique, unguessable token behind the review QR code printed on the
+  // invoice. Stays valid after use (a printed QR must keep resolving) —
+  // reviewSubmittedAt below is what blocks a second submission through it.
+  reviewToken       String?   @unique
+  reviewSubmittedAt DateTime?
   isDemo          Boolean  @default(false)
   createdAt       DateTime @default(now())
 
@@ -481,6 +503,7 @@ model Sale {
   variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   branch  Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
   staff   User            @relation("SaleStaff", fields: [staffId], references: [id], onDelete: Restrict)
+  review  Review?
 
   @@index([branchId])
   @@index([staffId])

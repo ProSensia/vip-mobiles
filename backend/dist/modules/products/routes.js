@@ -16,6 +16,7 @@ const variants_routes_1 = __importDefault(require("./variants.routes"));
 const images_routes_1 = __importDefault(require("./images.routes"));
 const videos_routes_1 = __importDefault(require("./videos.routes"));
 const reviews_routes_1 = __importDefault(require("./reviews.routes"));
+const importExport_routes_1 = __importDefault(require("./importExport.routes"));
 const router = (0, express_1.Router)();
 // GET routes below vary their response (which statuses are visible) based on
 // whether the caller is authenticated staff — populate req.user when a valid
@@ -168,6 +169,9 @@ router.get("/by-id/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shar
         throw new errorHandler_1.ApiError(404, "Product not found");
     res.json({ product });
 }));
+// Registered before the /:slug catch-all so /export.xlsx and
+// /import-template.xlsx aren't swallowed as a slug lookup.
+router.use(importExport_routes_1.default);
 router.get("/:slug", (0, errorHandler_1.asyncHandler)(async (req, res) => {
     const product = await prisma_1.prisma.product.findUnique({
         where: { slug: req.params.slug },

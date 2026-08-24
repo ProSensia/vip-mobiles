@@ -1,16 +1,35 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const zod_1 = require("zod");
+const crypto_1 = __importDefault(require("crypto"));
+const qrcode_1 = __importDefault(require("qrcode"));
 const prisma_1 = require("../../lib/prisma");
 const errorHandler_1 = require("../../middleware/errorHandler");
 const validate_1 = require("../../middleware/validate");
 const auth_1 = require("../../middleware/auth");
+const upload_1 = require("../../middleware/upload");
+const image_1 = require("../../utils/image");
 const audit_1 = require("../../utils/audit");
 const notifications_1 = require("../../utils/notifications");
 const shared_1 = require("../../shared");
+const env_1 = require("../../env");
 const router = (0, express_1.Router)();
 router.use(auth_1.authenticate);
+/** Own sale, or has the cross-staff view permission — same rule the list/analytics endpoints already use. */
+async function loadOwnedSale(req, id) {
+    const sale = await prisma_1.prisma.sale.findUnique({ where: { id } });
+    if (!sale)
+        throw new errorHandler_1.ApiError(404, "Sale not found");
+    const canAccessAll = (0, shared_1.hasPermission)(req.user, shared_1.PERMISSIONS.SALES_VIEW_ALL);
+    if (!canAccessAll && sale.staffId !== req.user.id) {
+        throw new errorHandler_1.ApiError(403, "You do not have access to this sale");
+    }
+    return sale;
+}
 const createSaleSchema = zod_1.z.object({
     productId: zod_1.z.string().min(1),
     variantId: zod_1.z.string().optional().nullable(),
@@ -155,5 +174,44 @@ router.get("/inventory-stats", (0, auth_1.requirePermission)(shared_1.PERMISSION
         counts: { available, reserved, sold, hidden, total: available + reserved + sold + hidden },
         availableInventoryValue: valueAgg._sum.basePrice ?? 0,
     });
+}));
+// Bill/invoice photo — kept private (never exposed on the public storefront),
+// viewable only to the sale's own staff or SALES_VIEW_ALL holders via loadOwnedSale.
+router.post("/:id/bill", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.SALES_RECORD), upload_1.imageUpload.single("bill"), (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    const sale = await loadOwnedSale(req, req.params.id);
+    if (!req.file)
+        throw new errorHandler_1.ApiError(400, "No image was uploaded");
+    const { url } = await (0, image_1.processGenericImage)(req.file.buffer, "sales-bills", 1600);
+    const updated = await prisma_1.prisma.sale.update({ where: { id: sale.id }, data: { billUrl: url } });
+    (0, audit_1.recordAudit)(req, { action: "sale.bill.uploaded", entityType: "Sale", entityId: sale.id });
+    res.json({ sale: updated });
+}));
+// Get-or-create the review link for this sale. Idempotent — a QR code once
+// printed/shared must keep working, so re-requesting returns the same token
+// rather than rotating it.
+router.post("/:id/review-link", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.SALES_RECORD), (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    const sale = await loadOwnedSale(req, req.params.id);
+    let token = sale.reviewToken;
+    if (!token) {
+        token = crypto_1.default.randomBytes(24).toString("base64url");
+        await prisma_1.prisma.sale.update({ where: { id: sale.id }, data: { reviewToken: token } });
+    }
+    res.json({
+        token,
+        reviewUrl: `${env_1.env.WEB_APP_URL}/review/${token}`,
+        alreadySubmitted: !!sale.reviewSubmittedAt,
+    });
+}));
+// PNG QR code for the review link — a plain <img src> so it prints reliably
+// with no client-side rendering dependency (works on any device/connection).
+router.get("/:id/review-qr.png", (0, auth_1.requirePermission)(shared_1.PERMISSIONS.SALES_RECORD), (0, errorHandler_1.asyncHandler)(async (req, res) => {
+    const sale = await loadOwnedSale(req, req.params.id);
+    if (!sale.reviewToken)
+        throw new errorHandler_1.ApiError(400, "Generate the review link first");
+    const reviewUrl = `${env_1.env.WEB_APP_URL}/review/${sale.reviewToken}`;
+    const png = await qrcode_1.default.toBuffer(reviewUrl, { type: "png", width: 480, margin: 1 });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(png);
 }));
 exports.default = router;

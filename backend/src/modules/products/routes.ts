@@ -12,6 +12,7 @@ import variantsRouter from "./variants.routes";
 import imagesRouter from "./images.routes";
 import videosRouter from "./videos.routes";
 import reviewsRouter from "./reviews.routes";
+import importExportRouter from "./importExport.routes";
 
 const router = Router();
 
@@ -187,6 +188,10 @@ router.get(
     res.json({ product });
   })
 );
+
+// Registered before the /:slug catch-all so /export.xlsx and
+// /import-template.xlsx aren't swallowed as a slug lookup.
+router.use(importExportRouter);
 
 router.get(
   "/:slug",

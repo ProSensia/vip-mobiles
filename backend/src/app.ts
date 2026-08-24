@@ -25,6 +25,7 @@ import auditRoutes from "./modules/audit/routes";
 import mediaRoutes from "./modules/media/routes";
 import systemRoutes from "./modules/system/routes";
 import notificationRoutes from "./modules/notifications/routes";
+import publicReviewRoutes from "./modules/reviews/publicRoutes";
 
 export function createApp() {
   const app = express();
@@ -88,6 +89,7 @@ export function createApp() {
   app.use("/api/media", mediaRoutes);
   app.use("/api/system", systemRoutes);
   app.use("/api/notifications", notificationRoutes);
+  app.use("/api/reviews", publicReviewRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

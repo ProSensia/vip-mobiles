@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
   if (!user) redirect("/login?next=/admin");
+  if (user.mustChangePassword) redirect("/change-password-required");
 
   const nav = filterNav(ADMIN_NAV, user.permissions, user.role).map((item) => ({
     href: item.href,

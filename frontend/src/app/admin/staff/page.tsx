@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ShieldCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, ShieldCheck, Copy, Check } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import { Badge } from "@/components/ui/Badge";
@@ -106,6 +106,7 @@ function StaffFormModal({ user, branches, onClose, onSaved }: { user: StaffUser 
   const [branchId, setBranchId] = useState(user?.branch?.id ?? "");
   const [position, setPosition] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -114,17 +115,30 @@ function StaffFormModal({ user, branches, onClose, onSaved }: { user: StaffUser 
       if (user) {
         await clientApi.patch(`/users/${user.id}`, { name, role, branchId: branchId || null });
         toast.success("Staff account updated");
+        onSaved();
+        onClose();
       } else {
-        await clientApi.post("/users", { name, email, role, branchId: branchId || undefined, position: position || undefined });
-        toast.success("Invite sent — they'll receive a link to set their password.");
+        const res = await clientApi.post<{ tempPassword: string }>("/users", { name, email, role, branchId: branchId || undefined, position: position || undefined });
+        toast.success("Staff account created");
+        onSaved();
+        // Show the temp password once instead of closing immediately — a
+        // setup link was also emailed, but this is the fallback if that
+        // doesn't arrive (mail delivery on this host has been unreliable).
+        setTempPassword(res.tempPassword);
       }
-      onSaved();
-      onClose();
     } catch (err) {
       toast.error(err instanceof ClientApiError ? err.message : "Could not save staff account");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (tempPassword) {
+    return (
+      <Modal open onClose={onClose} title="Staff Account Created">
+        <TempPasswordReveal name={name} email={email} tempPassword={tempPassword} onDone={onClose} />
+      </Modal>
+    );
   }
 
   return (
@@ -151,5 +165,35 @@ function StaffFormModal({ user, branches, onClose, onSaved }: { user: StaffUser 
         <Button type="submit" className="w-full" loading={saving}>{user ? "Save Changes" : "Send Invite"}</Button>
       </form>
     </Modal>
+  );
+}
+
+function TempPasswordReveal({ name, email, tempPassword, onDone }: { name: string; email: string; tempPassword: string; onDone: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(tempPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy — select and copy manually");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-cream/90">
+        A setup link was emailed to <span className="font-medium text-cream">{email}</span>. If it doesn&apos;t arrive, share this temporary password with {name} directly — it will only be shown once here.
+      </p>
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-gold-500/40 bg-ink-800 px-4 py-3">
+        <code className="font-mono text-lg tracking-wide text-gold-400">{tempPassword}</code>
+        <Button size="sm" variant="outline" onClick={copy}>
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted">They&apos;ll be required to set a new password the first time they sign in.</p>
+      <Button className="w-full" onClick={onDone}>Done</Button>
+    </div>
   );
 }

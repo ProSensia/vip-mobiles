@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
   if (!user) redirect("/login?next=/portal");
+  if (user.mustChangePassword) redirect("/change-password-required");
 
   const nav = filterNav(PORTAL_NAV, user.permissions, user.role).map((item) => ({
     href: item.href,

@@ -30,6 +30,7 @@ const routes_14 = __importDefault(require("./modules/audit/routes"));
 const routes_15 = __importDefault(require("./modules/media/routes"));
 const routes_16 = __importDefault(require("./modules/system/routes"));
 const routes_17 = __importDefault(require("./modules/notifications/routes"));
+const publicRoutes_1 = __importDefault(require("./modules/reviews/publicRoutes"));
 function createApp() {
     const app = (0, express_1.default)();
     app.set("trust proxy", 1);
@@ -81,6 +82,7 @@ function createApp() {
     app.use("/api/media", routes_15.default);
     app.use("/api/system", routes_16.default);
     app.use("/api/notifications", routes_17.default);
+    app.use("/api/reviews", publicRoutes_1.default);
     app.use(errorHandler_1.notFoundHandler);
     app.use(errorHandler_1.errorHandler);
     return app;

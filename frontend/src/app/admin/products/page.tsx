@@ -4,13 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, FileSpreadsheet } from "lucide-react";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import { ProductStatusBadge, ConditionBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ProductImportExportModal } from "@/components/admin/product/ProductImportExportModal";
 import { useFetch } from "@/lib/useFetch";
 import { clientApi, ClientApiError } from "@/lib/clientApi";
 import { formatCurrency } from "@/lib/utils";
@@ -35,6 +36,7 @@ export default function ProductsListPage() {
     [status, q]
   );
   const { confirm, dialog } = useConfirmDialog();
+  const [showImportExport, setShowImportExport] = useState(false);
 
   async function handleDelete(p: ProductRow) {
     const ok = await confirm({ title: "Delete Product", description: `Delete "${p.title}"? This can't be undone.`, destructive: true, confirmLabel: "Delete" });
@@ -79,7 +81,12 @@ export default function ProductsListPage() {
       <PageHeader
         title="Products"
         description="Manage your full phone inventory."
-        action={<Link href="/admin/products/new"><Button><Plus className="h-4 w-4" /> Add Product</Button></Link>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowImportExport(true)}><FileSpreadsheet className="h-4 w-4" /> Import / Export</Button>
+            <Link href="/admin/products/new"><Button><Plus className="h-4 w-4" /> Add Product</Button></Link>
+          </div>
+        }
       />
 
       <div className="mb-4 flex gap-3">
@@ -98,6 +105,9 @@ export default function ProductsListPage() {
 
       <DataTable columns={columns} rows={data?.items ?? []} loading={loading} emptyTitle="No products yet" emptyDescription="Add your first product to start selling." />
       {dialog}
+      {showImportExport && (
+        <ProductImportExportModal onClose={() => setShowImportExport(false)} onImported={refetch} />
+      )}
     </div>
   );
 }
