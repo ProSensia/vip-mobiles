@@ -32,10 +32,16 @@ const PUBLIC_CARD_SELECT = {
     boxAvailable: true,
     isFeatured: true,
     isNewArrival: true,
+    isTrending: true,
+    isBestSeller: true,
+    isPtaApproved: true,
     createdAt: true,
     brand: { select: { id: true, name: true, slug: true } },
     category: { select: { id: true, name: true, slug: true } },
     images: { where: { isPrimary: true }, take: 1 },
+    // Just stock counts (not full variant records) — enough to compute an
+    // IN STOCK / LOW STOCK / OUT OF STOCK badge without a second query.
+    variants: { select: { stockQty: true } },
 };
 const listQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).default(1),
@@ -98,25 +104,50 @@ router.get("/", (0, validate_1.validateQuery)(listQuerySchema), (0, errorHandler
     ]);
     res.json({ items, total, page: q.page, limit: q.limit, totalPages: Math.ceil(total / q.limit) });
 }));
-router.get("/featured", (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 9, 12);
-    const items = await prisma_1.prisma.product.findMany({
-        where: { isFeatured: true, status: { in: ["AVAILABLE", "RESERVED"] } },
-        select: PUBLIC_CARD_SELECT,
-        orderBy: { createdAt: "desc" },
-        take: limit,
+// Shared shape for the "flagged" listing endpoints (featured / new arrivals /
+// trending / best sellers) — same indexed boolean-flag lookup, capped and
+// sorted the same way, just a different field.
+function flaggedProductsHandler(flag) {
+    return (0, errorHandler_1.asyncHandler)(async (req, res) => {
+        const limit = Math.min(Number(req.query.limit) || 9, 12);
+        const items = await prisma_1.prisma.product.findMany({
+            where: { [flag]: true, status: { in: ["AVAILABLE", "RESERVED"] } },
+            select: PUBLIC_CARD_SELECT,
+            orderBy: { createdAt: "desc" },
+            take: limit,
+        });
+        res.json({ items });
     });
-    res.json({ items });
-}));
-router.get("/new-arrivals", (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 9, 12);
-    const items = await prisma_1.prisma.product.findMany({
-        where: { isNewArrival: true, status: { in: ["AVAILABLE", "RESERVED"] } },
-        select: PUBLIC_CARD_SELECT,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-    });
-    res.json({ items });
+}
+router.get("/featured", flaggedProductsHandler("isFeatured"));
+router.get("/new-arrivals", flaggedProductsHandler("isNewArrival"));
+router.get("/trending", flaggedProductsHandler("isTrending"));
+router.get("/best-sellers", flaggedProductsHandler("isBestSeller"));
+// Lightweight admin dashboard summary — total counts (cheap, indexed) plus
+// the 5 most recent products. Kept separate from /sales/inventory-stats
+// (which already covers available/reserved/sold/hidden + total) so this
+// stays visible to any logged-in staff, not just roles with sales
+// permissions.
+router.get("/catalog-stats", auth_1.authenticate, (0, errorHandler_1.asyncHandler)(async (_req, res) => {
+    const [totalBrands, totalCategories, featuredCount, recentProducts] = await Promise.all([
+        prisma_1.prisma.brand.count(),
+        prisma_1.prisma.category.count(),
+        prisma_1.prisma.product.count({ where: { isFeatured: true } }),
+        prisma_1.prisma.product.findMany({
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            select: {
+                id: true,
+                title: true,
+                slug: true,
+                basePrice: true,
+                status: true,
+                createdAt: true,
+                images: { where: { isPrimary: true }, take: 1, select: { thumbUrl: true, url: true } },
+            },
+        }),
+    ]);
+    res.json({ totalBrands, totalCategories, featuredCount, recentProducts });
 }));
 // Admin edit screens navigate by id (not slug); kept above the /:slug route
 // so Express doesn't swallow it as a slug lookup.
@@ -181,6 +212,9 @@ const productSchema = zod_1.z.object({
     boxAvailable: zod_1.z.boolean().optional(),
     isFeatured: zod_1.z.boolean().optional(),
     isNewArrival: zod_1.z.boolean().optional(),
+    isTrending: zod_1.z.boolean().optional(),
+    isBestSeller: zod_1.z.boolean().optional(),
+    isPtaApproved: zod_1.z.boolean().optional(),
     metaTitle: zod_1.z.string().max(200).optional().nullable(),
     metaDescription: zod_1.z.string().max(320).optional().nullable(),
 });

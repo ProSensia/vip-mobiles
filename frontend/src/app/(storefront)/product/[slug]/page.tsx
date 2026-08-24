@@ -7,6 +7,7 @@ import { VideoEmbedGrid } from "@/components/storefront/product/VideoEmbed";
 import { ReviewsSection } from "@/components/storefront/product/ReviewsSection";
 import { ProductCard, type ProductCardData } from "@/components/storefront/ProductCard";
 import { SectionHeading } from "@/components/storefront/SectionHeading";
+import { TrackRecentlyViewed } from "@/components/storefront/RecentlyViewed";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -21,6 +22,10 @@ interface ProductDetail {
   basePrice: string | number;
   compareAtPrice?: string | number | null;
   boxAvailable: boolean;
+  isNewArrival?: boolean;
+  isTrending?: boolean;
+  isBestSeller?: boolean;
+  isPtaApproved?: boolean;
   metaTitle?: string | null;
   metaDescription?: string | null;
   brand: { id: string; name: string; slug: string };
@@ -101,6 +106,18 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <nav className="mb-6 text-sm text-muted">
         <a href="/catalog" className="hover:text-cream">Catalog</a> / <span className="text-cream">{product.brand.name}</span>
       </nav>
+
+      <TrackRecentlyViewed
+        product={{
+          id: product.id,
+          slug: product.slug,
+          title: product.title,
+          basePrice: product.basePrice,
+          image: product.images?.[0]?.thumbUrl || product.images?.[0]?.url,
+          brand: product.brand.name,
+          condition: product.condition,
+        }}
+      />
 
       <ProductInteractive
         product={product}

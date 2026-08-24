@@ -52,7 +52,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const params = new URLSearchParams();
-  for (const key of ["category", "brand", "condition", "q", "sort", "page"]) {
+  for (const key of ["category", "brand", "condition", "status", "q", "sort", "page", "minPrice", "maxPrice"]) {
     if (sp[key]) params.set(key, sp[key]!);
   }
   params.set("limit", "24");

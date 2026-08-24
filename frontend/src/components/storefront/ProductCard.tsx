@@ -2,6 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import { ConditionBadge } from "@/components/ui/Badge";
+import { ProductBadgeStack, StockBadge } from "./ProductBadges";
+import { WishlistButton } from "./WishlistButton";
+import { CompareCheckbox } from "./CompareCheckbox";
+import { QuickPreviewButton } from "./QuickPreview";
 
 export interface ProductCardData {
   id: string;
@@ -12,6 +16,11 @@ export interface ProductCardData {
   basePrice: string | number;
   compareAtPrice?: string | number | null;
   boxAvailable: boolean;
+  isNewArrival?: boolean;
+  isTrending?: boolean;
+  isBestSeller?: boolean;
+  isPtaApproved?: boolean;
+  variants?: Array<{ stockQty: number }>;
   brand?: { name: string } | null;
   category?: { name: string } | null;
   images: Array<{ mediumUrl?: string | null; webpUrl?: string | null; url: string; thumbUrl?: string | null }>;
@@ -21,42 +30,53 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   const image = product.images?.[0];
   const isSold = product.status === "SOLD";
   const isReserved = product.status === "RESERVED";
+  const wishlistEntry = { id: product.id, slug: product.slug, title: product.title, basePrice: product.basePrice, image: image?.thumbUrl || image?.url, brand: product.brand?.name, condition: product.condition };
 
   return (
-    <Link
-      href={`/product/${product.slug}`}
-      className="group block overflow-hidden rounded-xl2 border border-ink-600 bg-ink-800/60 transition-all hover:-translate-y-0.5 hover:border-gold-500/50 hover:shadow-gold"
-    >
-      <div className="relative aspect-square overflow-hidden bg-ink-900">
-        {image ? (
-          <Image
-            src={image.mediumUrl || image.webpUrl || image.url}
-            alt={product.title}
-            fill
-            loading="lazy"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted">No image</div>
-        )}
+    <div className="group relative overflow-hidden rounded-xl2 border border-ink-600 bg-ink-800/60 transition-all hover:-translate-y-0.5 hover:border-gold-500/50 hover:shadow-gold">
+      <Link href={`/product/${product.slug}`} className="block">
+        <div className="relative aspect-square overflow-hidden bg-ink-900">
+          {image ? (
+            <Image
+              src={image.mediumUrl || image.webpUrl || image.url}
+              alt={product.title}
+              fill
+              loading="lazy"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted">No image</div>
+          )}
 
-        {(isSold || isReserved) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink-950/70">
-            <span className={`rounded-full px-4 py-1.5 text-sm font-bold uppercase tracking-wider ${isSold ? "bg-red-600 text-white" : "bg-amber-500 text-ink-950"}`}>
-              {isSold ? "Sold" : "Reserved"}
+          {(isSold || isReserved) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-ink-950/70">
+              <span className={`rounded-full px-4 py-1.5 text-sm font-bold uppercase tracking-wider ${isSold ? "bg-red-600 text-white" : "bg-amber-500 text-ink-950"}`}>
+                {isSold ? "Sold" : "Reserved"}
+              </span>
+            </div>
+          )}
+
+          <ProductBadgeStack product={product} className="absolute left-2 top-2 max-w-[calc(100%-3rem)]" />
+
+          {product.boxAvailable && !isSold && (
+            <span className="absolute bottom-2 left-2 rounded-full border border-gold-500/30 bg-ink-950/80 px-2 py-0.5 text-[11px] font-medium text-gold-400">
+              Box Included
             </span>
-          </div>
-        )}
+          )}
+        </div>
+      </Link>
 
-        {product.boxAvailable && !isSold && (
-          <span className="absolute left-2 top-2 rounded-full bg-ink-950/80 px-2 py-0.5 text-[11px] font-medium text-gold-400 border border-gold-500/30">
-            Box Included
-          </span>
-        )}
+      <div className="absolute right-2 top-2 flex flex-col gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <WishlistButton product={wishlistEntry} size="sm" />
+        <CompareCheckbox product={wishlistEntry} className="h-8 w-8" />
+        <QuickPreviewButton
+          product={product}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-ink-600 bg-ink-950/80 text-cream transition-colors hover:border-gold-500/60 hover:text-gold-400"
+        />
       </div>
 
-      <div className="p-3.5">
+      <Link href={`/product/${product.slug}`} className="block p-3.5">
         {product.brand && <p className="text-xs font-medium uppercase tracking-wide text-muted">{product.brand.name}</p>}
         <h3 className="mt-0.5 line-clamp-2 font-display text-sm font-semibold text-cream">{product.title}</h3>
         <div className="mt-2 flex items-center justify-between">
@@ -68,7 +88,8 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </div>
           <ConditionBadge condition={product.condition} />
         </div>
-      </div>
-    </Link>
+        {!isSold && !isReserved && <StockBadge product={product} className="mt-2 inline-block" />}
+      </Link>
+    </div>
   );
 }

@@ -7,6 +7,8 @@ import { Gallery, type GalleryImage } from "./Gallery";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input, Textarea, FormField } from "@/components/ui/Input";
+import { WishlistButton } from "../WishlistButton";
+import { ProductBadgeStack } from "../ProductBadges";
 import { formatCurrency, cn } from "@/lib/utils";
 import { buildBuyRequestWhatsAppUrl } from "../../../shared";
 
@@ -27,8 +29,13 @@ interface Props {
     title: string;
     slug: string;
     basePrice: string | number;
+    compareAtPrice?: string | number | null;
     boxAvailable: boolean;
     status: string;
+    isNewArrival?: boolean;
+    isTrending?: boolean;
+    isBestSeller?: boolean;
+    isPtaApproved?: boolean;
   };
   images: GalleryImage[];
   variants: Variant[];
@@ -61,10 +68,21 @@ export function ProductInteractive({ product, images, variants, whatsappNumber, 
         <Gallery images={images} title={product.title} />
 
         <div>
-          <div className="flex items-baseline gap-3">
-            <span className="font-display text-3xl font-bold text-gold-400">{formatCurrency(price, currency)}</span>
-            {isSold && <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold uppercase text-white">Sold</span>}
-            {!isSold && isReserved && <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-bold uppercase text-ink-950">Reserved</span>}
+          <ProductBadgeStack
+            product={{ ...product, variants: variants.map((v) => ({ stockQty: v.stockQty })) }}
+            className="mb-3"
+          />
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-baseline gap-3">
+              <span className="font-display text-3xl font-bold text-gold-400">{formatCurrency(price, currency)}</span>
+              {product.compareAtPrice && (
+                <span className="text-base text-muted line-through">{formatCurrency(product.compareAtPrice, currency)}</span>
+              )}
+              {isSold && <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-bold uppercase text-white">Sold</span>}
+              {!isSold && isReserved && <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-bold uppercase text-ink-950">Reserved</span>}
+            </div>
+            <WishlistButton product={{ id: product.id, slug: product.slug, title: product.title, basePrice: price, image: images[0]?.thumbUrl || images[0]?.url }} />
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-sm">

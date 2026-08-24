@@ -4,6 +4,7 @@ import { SectionHeading } from "@/components/storefront/SectionHeading";
 import { ProductCard, type ProductCardData } from "@/components/storefront/ProductCard";
 import { CategoryCard } from "@/components/storefront/CategoryCard";
 import { BranchCard } from "@/components/storefront/BranchCard";
+import { RecentlyViewedSection } from "@/components/storefront/RecentlyViewed";
 import Link from "next/link";
 
 export const revalidate = 60;
@@ -97,13 +98,33 @@ async function renderSection(section: HomepageSection) {
   }
 }
 
+async function flaggedSection(path: string, title: string) {
+  const data = await publicApiSafe<{ items: ProductCardData[] }>(path);
+  if (!data?.items?.length) return null;
+  return (
+    <section key={path} className="container-page py-10">
+      <SectionHeading title={title} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {data.items.map((p) => <ProductCard key={p.id} product={p} />)}
+      </div>
+    </section>
+  );
+}
+
 export default async function HomePage() {
   const { sections, heroBanner } = await getData();
+  const [trending, bestSellers] = await Promise.all([
+    flaggedSection("/api/products/trending?limit=8", "🔥 Trending Now"),
+    flaggedSection("/api/products/best-sellers?limit=8", "Best Sellers"),
+  ]);
 
   return (
     <>
       {heroBanner && <HeroBanner banner={heroBanner} />}
       {await Promise.all(sections.map(renderSection))}
+      {trending}
+      {bestSellers}
+      <RecentlyViewedSection />
     </>
   );
 }

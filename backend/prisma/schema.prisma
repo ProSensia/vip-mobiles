@@ -232,6 +232,9 @@ model Product {
   boxAvailable    Boolean          @default(false)
   isFeatured      Boolean          @default(false)
   isNewArrival    Boolean          @default(false)
+  isTrending      Boolean          @default(false)
+  isBestSeller    Boolean          @default(false)
+  isPtaApproved   Boolean          @default(false)
   isDemo          Boolean          @default(false)
   viewCount       Int              @default(0)
   soldAt          DateTime?
@@ -259,6 +262,8 @@ model Product {
   @@index([branchId])
   @@index([isFeatured])
   @@index([isNewArrival])
+  @@index([isTrending])
+  @@index([isBestSeller])
   @@index([createdAt])
 }
 

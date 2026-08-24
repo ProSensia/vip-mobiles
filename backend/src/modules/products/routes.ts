@@ -31,10 +31,16 @@ const PUBLIC_CARD_SELECT = {
   boxAvailable: true,
   isFeatured: true,
   isNewArrival: true,
+  isTrending: true,
+  isBestSeller: true,
+  isPtaApproved: true,
   createdAt: true,
   brand: { select: { id: true, name: true, slug: true } },
   category: { select: { id: true, name: true, slug: true } },
   images: { where: { isPrimary: true }, take: 1 },
+  // Just stock counts (not full variant records) — enough to compute an
+  // IN STOCK / LOW STOCK / OUT OF STOCK badge without a second query.
+  variants: { select: { stockQty: true } },
 } satisfies Prisma.ProductSelect;
 
 const listQuerySchema = z.object({
@@ -106,31 +112,55 @@ router.get(
   })
 );
 
-router.get(
-  "/featured",
-  asyncHandler(async (req, res) => {
+// Shared shape for the "flagged" listing endpoints (featured / new arrivals /
+// trending / best sellers) — same indexed boolean-flag lookup, capped and
+// sorted the same way, just a different field.
+function flaggedProductsHandler(flag: "isFeatured" | "isNewArrival" | "isTrending" | "isBestSeller") {
+  return asyncHandler(async (req: import("express").Request, res: import("express").Response) => {
     const limit = Math.min(Number(req.query.limit) || 9, 12);
     const items = await prisma.product.findMany({
-      where: { isFeatured: true, status: { in: ["AVAILABLE", "RESERVED"] } },
+      where: { [flag]: true, status: { in: ["AVAILABLE", "RESERVED"] } },
       select: PUBLIC_CARD_SELECT,
       orderBy: { createdAt: "desc" },
       take: limit,
     });
     res.json({ items });
-  })
-);
+  });
+}
 
+router.get("/featured", flaggedProductsHandler("isFeatured"));
+router.get("/new-arrivals", flaggedProductsHandler("isNewArrival"));
+router.get("/trending", flaggedProductsHandler("isTrending"));
+router.get("/best-sellers", flaggedProductsHandler("isBestSeller"));
+
+// Lightweight admin dashboard summary — total counts (cheap, indexed) plus
+// the 5 most recent products. Kept separate from /sales/inventory-stats
+// (which already covers available/reserved/sold/hidden + total) so this
+// stays visible to any logged-in staff, not just roles with sales
+// permissions.
 router.get(
-  "/new-arrivals",
-  asyncHandler(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit) || 9, 12);
-    const items = await prisma.product.findMany({
-      where: { isNewArrival: true, status: { in: ["AVAILABLE", "RESERVED"] } },
-      select: PUBLIC_CARD_SELECT,
-      orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-    res.json({ items });
+  "/catalog-stats",
+  authenticate,
+  asyncHandler(async (_req, res) => {
+    const [totalBrands, totalCategories, featuredCount, recentProducts] = await Promise.all([
+      prisma.brand.count(),
+      prisma.category.count(),
+      prisma.product.count({ where: { isFeatured: true } }),
+      prisma.product.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          basePrice: true,
+          status: true,
+          createdAt: true,
+          images: { where: { isPrimary: true }, take: 1, select: { thumbUrl: true, url: true } },
+        },
+      }),
+    ]);
+    res.json({ totalBrands, totalCategories, featuredCount, recentProducts });
   })
 );
 
@@ -209,6 +239,9 @@ const productSchema = z.object({
   boxAvailable: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
   isNewArrival: z.boolean().optional(),
+  isTrending: z.boolean().optional(),
+  isBestSeller: z.boolean().optional(),
+  isPtaApproved: z.boolean().optional(),
   metaTitle: z.string().max(200).optional().nullable(),
   metaDescription: z.string().max(320).optional().nullable(),
 });

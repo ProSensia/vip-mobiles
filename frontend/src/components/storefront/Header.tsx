@@ -3,6 +3,7 @@ import Image from "next/image";
 import { MessageCircle } from "lucide-react";
 import { getSiteSettings } from "@/lib/settings";
 import { MobileNav } from "./MobileNav";
+import { WishlistNavLink } from "./WishlistNavLink";
 import { NAV_LINKS } from "./navLinks";
 
 export async function Header() {
@@ -29,6 +30,7 @@ export async function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <WishlistNavLink />
           {whatsapp && (
             <a
               href={`https://wa.me/${whatsapp}`}

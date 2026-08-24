@@ -1,4 +1,5 @@
-import { Smartphone, CheckCircle2, EyeOff, MessageSquareText, TrendingUp } from "lucide-react";
+import { Smartphone, CheckCircle2, EyeOff, MessageSquareText, TrendingUp, Package, Tags, LayoutGrid, Star, ScrollText } from "lucide-react";
+import Image from "next/image";
 import { serverApi, ApiError } from "@/lib/api";
 import { getSession } from "@/lib/session";
 import { StatCard } from "@/components/admin/StatCard";
@@ -18,10 +19,12 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | null> {
 export default async function AdminDashboardPage() {
   const user = await getSession();
 
-  const [inventory, analytics, buyRequests] = await Promise.all([
+  const [inventory, analytics, buyRequests, catalogStats, recentActivity] = await Promise.all([
     safe(() => serverApi<{ counts: any; availableInventoryValue: number }>("/api/sales/inventory-stats")),
     safe(() => serverApi<{ totals: any; byStaff: any[]; bestSellingBrands: any[] }>("/api/sales/analytics")),
     safe(() => serverApi<{ requests: any[] }>("/api/buy-requests?status=NEW")),
+    safe(() => serverApi<{ totalBrands: number; totalCategories: number; featuredCount: number; recentProducts: any[] }>("/api/products/catalog-stats")),
+    safe(() => serverApi<{ items: any[] }>("/api/audit-logs?limit=6")),
   ]);
 
   return (
@@ -30,6 +33,15 @@ export default async function AdminDashboardPage() {
         <h2 className="font-display text-2xl font-bold text-cream">Welcome back, {user?.name?.split(" ")[0]}</h2>
         <p className="mt-1 text-sm text-muted">Here&apos;s what&apos;s happening at VIP Mobiles today.</p>
       </div>
+
+      {(inventory || catalogStats) && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {inventory && <StatCard label="Total Products" value={inventory.counts.total} icon={Package} tone="gold" />}
+          {catalogStats && <StatCard label="Total Brands" value={catalogStats.totalBrands} icon={Tags} tone="blue" />}
+          {catalogStats && <StatCard label="Total Categories" value={catalogStats.totalCategories} icon={LayoutGrid} tone="green" />}
+          {catalogStats && <StatCard label="Featured Products" value={catalogStats.featuredCount} icon={Star} tone="gold" />}
+        </div>
+      )}
 
       {inventory && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -79,6 +91,49 @@ export default async function AdminDashboardPage() {
                     <span className="text-cream/90">{r.customerName} — {r.product.title}</span>
                   </div>
                   <span className="text-xs text-muted">{formatDate(r.createdAt)}</span>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+        )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {catalogStats && catalogStats.recentProducts.length > 0 && (
+          <Card>
+            <CardHeader
+              title="Recently Added Products"
+              action={<Link href="/admin/products" className="text-xs font-medium text-gold-400 hover:underline">View all</Link>}
+            />
+            <CardBody className="space-y-3">
+              {catalogStats.recentProducts.map((p: any) => (
+                <Link key={p.id} href={`/admin/products/${p.id}`} className="flex items-center gap-3 text-sm hover:text-gold-400">
+                  <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-ink-600 bg-ink-900">
+                    {p.images[0] && (
+                      <Image src={p.images[0].thumbUrl || p.images[0].url} alt="" fill className="object-cover" />
+                    )}
+                  </div>
+                  <span className="flex-1 truncate text-cream/90">{p.title}</span>
+                  <span className="shrink-0 text-xs text-muted">{formatDate(p.createdAt)}</span>
+                </Link>
+              ))}
+            </CardBody>
+          </Card>
+        )}
+
+        {recentActivity && recentActivity.items.length > 0 && (
+          <Card>
+            <CardHeader
+              title="Recent Admin Activity"
+              action={<Link href="/admin/audit-log" className="flex items-center gap-1 text-xs font-medium text-gold-400 hover:underline"><ScrollText className="h-3.5 w-3.5" /> View all</Link>}
+            />
+            <CardBody className="space-y-3">
+              {recentActivity.items.map((a: any) => (
+                <div key={a.id} className="flex items-center justify-between text-sm">
+                  <span className="truncate text-cream/90">
+                    {a.user?.name ?? "System"} — {a.action.replace(/\./g, " ").replace(/_/g, " ")}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">{formatDate(a.createdAt)}</span>
                 </div>
               ))}
             </CardBody>

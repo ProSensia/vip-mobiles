@@ -41,6 +41,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         boxAvailable: product.boxAvailable,
         isFeatured: product.isFeatured,
         isNewArrival: product.isNewArrival,
+        isTrending: product.isTrending,
+        isBestSeller: product.isBestSeller,
+        isPtaApproved: product.isPtaApproved,
         metaTitle: product.metaTitle ?? "",
         metaDescription: product.metaDescription ?? "",
       });
@@ -175,6 +178,15 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               </label>
               <label className="flex items-center gap-2 text-sm text-cream">
                 <input type="checkbox" checked={form.isNewArrival} onChange={(e) => set("isNewArrival", e.target.checked)} className="h-4 w-4 rounded border-ink-600 accent-gold-500" /> New Arrival
+              </label>
+              <label className="flex items-center gap-2 text-sm text-cream">
+                <input type="checkbox" checked={form.isTrending} onChange={(e) => set("isTrending", e.target.checked)} className="h-4 w-4 rounded border-ink-600 accent-gold-500" /> Trending / Hot Deal
+              </label>
+              <label className="flex items-center gap-2 text-sm text-cream">
+                <input type="checkbox" checked={form.isBestSeller} onChange={(e) => set("isBestSeller", e.target.checked)} className="h-4 w-4 rounded border-ink-600 accent-gold-500" /> Best Seller
+              </label>
+              <label className="flex items-center gap-2 text-sm text-cream">
+                <input type="checkbox" checked={form.isPtaApproved} onChange={(e) => set("isPtaApproved", e.target.checked)} className="h-4 w-4 rounded border-ink-600 accent-gold-500" /> PTA Approved
               </label>
             </div>
 
