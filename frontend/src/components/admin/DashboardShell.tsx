@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { clientApi } from "@/lib/clientApi";
+import { CurrentUserProvider } from "@/lib/currentUser";
 import { NotificationBell } from "./NotificationBell";
 import type { SessionUser } from "@/lib/session";
 
@@ -115,7 +116,9 @@ export function DashboardShell({
             </div>
           </div>
         </header>
-        <main className="p-4 sm:p-6">{children}</main>
+        <main className="p-4 sm:p-6">
+          <CurrentUserProvider user={user}>{children}</CurrentUserProvider>
+        </main>
       </div>
     </div>
   );

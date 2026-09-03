@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { ProductStatusBadge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ImagesManager } from "@/components/admin/product/ImagesManager";
+import { UnitsManager } from "@/components/admin/product/UnitsManager";
 import { VariantsManager } from "@/components/admin/product/VariantsManager";
 import { VideosManager } from "@/components/admin/product/VideosManager";
 import { ReviewsManager } from "@/components/admin/product/ReviewsManager";
@@ -225,6 +226,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       <Card>
         <CardHeader title="Variants" subtitle="Color and storage combinations with their own price and stock." />
         <CardBody><VariantsManager productId={id} variants={product.variants} onChange={refetch} /></CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader title="Inventory Units (IMEI / QR)" subtitle="Scan in each physical phone individually — selling one only affects that unit." />
+        <CardBody><UnitsManager productId={id} /></CardBody>
       </Card>
 
       <Card>

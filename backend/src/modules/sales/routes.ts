@@ -27,6 +27,12 @@ async function loadOwnedSale(req: import("express").Request, id: string) {
   return sale;
 }
 
+/** Purchase cost and profit are financial data — only SALES_ANALYTICS holders get them back in API responses. */
+function stripCost<T extends { costPrice: unknown; profit: unknown }>(sale: T, canSeeCost: boolean): T {
+  if (canSeeCost) return sale;
+  return { ...sale, costPrice: null, profit: null };
+}
+
 const createSaleSchema = z.object({
   productId: z.string().min(1),
   variantId: z.string().optional().nullable(),
@@ -45,9 +51,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const product = await prisma.product.findUnique({ where: { id: req.body.productId } });
     if (!product) throw new ApiError(404, "Product not found");
-
-    const existingSale = await prisma.sale.findUnique({ where: { productId: product.id } });
-    if (existingSale) throw new ApiError(400, "This product has already been recorded as sold");
+    if (product.status === "SOLD") throw new ApiError(400, "This product has already been recorded as sold");
 
     const canAssignOthers = hasPermission(req.user!, PERMISSIONS.SALES_VIEW_ALL);
     const staffId = canAssignOthers && req.body.staffId ? req.body.staffId : req.user!.id;
@@ -117,7 +121,7 @@ router.post(
       req.user!.id
     );
 
-    res.status(201).json({ sale });
+    res.status(201).json({ sale: stripCost(sale, hasPermission(req.user!, PERMISSIONS.SALES_ANALYTICS)) });
   })
 );
 
@@ -144,13 +148,15 @@ router.get(
       ...(q.from || q.to ? { saleDate: { ...(q.from ? { gte: q.from } : {}), ...(q.to ? { lte: q.to } : {}) } } : {}),
     };
 
+    const canSeeCost = hasPermission(req.user!, PERMISSIONS.SALES_ANALYTICS);
     const [items, total] = await Promise.all([
       prisma.sale.findMany({
         where,
         include: {
-          product: { select: { id: true, title: true, slug: true } },
+          product: { select: { id: true, title: true, slug: true, condition: true } },
           branch: { select: { id: true, name: true } },
           staff: { select: { id: true, name: true } },
+          unit: { select: { id: true, imei1: true, imei2: true, qrCode: true } },
         },
         orderBy: { saleDate: "desc" },
         skip: (q.page - 1) * q.limit,
@@ -159,7 +165,13 @@ router.get(
       prisma.sale.count({ where }),
     ]);
 
-    res.json({ items, total, page: q.page, limit: q.limit, totalPages: Math.ceil(total / q.limit) });
+    res.json({
+      items: items.map((s) => stripCost(s, canSeeCost)),
+      total,
+      page: q.page,
+      limit: q.limit,
+      totalPages: Math.ceil(total / q.limit),
+    });
   })
 );
 
@@ -173,7 +185,7 @@ router.get(
     const sales = await prisma.sale.findMany({
       where: { saleDate: { gte: from, lte: to } },
       include: {
-        product: { select: { brandId: true, categoryId: true, title: true, brand: { select: { name: true } }, category: { select: { name: true } } } },
+        product: { select: { brandId: true, categoryId: true, title: true, condition: true, brand: { select: { name: true } }, category: { select: { name: true } } } },
         branch: { select: { id: true, name: true } },
         staff: { select: { id: true, name: true } },
       },
@@ -182,21 +194,28 @@ router.get(
     const totalRevenue = sales.reduce((sum, s) => sum + Number(s.soldPrice), 0);
     const totalProfit = sales.reduce((sum, s) => sum + Number(s.profit ?? 0), 0);
 
-    const byBranch = new Map<string, { branchId: string | null; name: string; count: number; revenue: number }>();
-    const byStaff = new Map<string, { staffId: string; name: string; count: number; revenue: number }>();
+    const byBranch = new Map<string, { branchId: string | null; name: string; count: number; revenue: number; profit: number }>();
+    const byStaff = new Map<string, { staffId: string; name: string; count: number; revenue: number; profit: number }>();
     const byBrand = new Map<string, { name: string; count: number; revenue: number }>();
     const byDate = new Map<string, { date: string; count: number; revenue: number }>();
+    let newCount = 0;
+    let usedCount = 0;
+    let todayCount = 0;
+    let todayRevenue = 0;
+    const todayKey = new Date().toISOString().slice(0, 10);
 
     for (const s of sales) {
       const branchKey = s.branchId ?? "unassigned";
-      const branchEntry = byBranch.get(branchKey) ?? { branchId: s.branchId, name: s.branch?.name ?? "Unassigned", count: 0, revenue: 0 };
+      const branchEntry = byBranch.get(branchKey) ?? { branchId: s.branchId, name: s.branch?.name ?? "Unassigned", count: 0, revenue: 0, profit: 0 };
       branchEntry.count++;
       branchEntry.revenue += Number(s.soldPrice);
+      branchEntry.profit += Number(s.profit ?? 0);
       byBranch.set(branchKey, branchEntry);
 
-      const staffEntry = byStaff.get(s.staffId) ?? { staffId: s.staffId, name: s.staff.name, count: 0, revenue: 0 };
+      const staffEntry = byStaff.get(s.staffId) ?? { staffId: s.staffId, name: s.staff.name, count: 0, revenue: 0, profit: 0 };
       staffEntry.count++;
       staffEntry.revenue += Number(s.soldPrice);
+      staffEntry.profit += Number(s.profit ?? 0);
       byStaff.set(s.staffId, staffEntry);
 
       const brandName = s.product.brand?.name ?? "Unknown";
@@ -210,11 +229,20 @@ router.get(
       dateEntry.count++;
       dateEntry.revenue += Number(s.soldPrice);
       byDate.set(dateKey, dateEntry);
+
+      if (s.product.condition === "NEW") newCount++;
+      else usedCount++;
+      if (dateKey === todayKey) {
+        todayCount++;
+        todayRevenue += Number(s.soldPrice);
+      }
     }
 
     res.json({
       range: { from, to },
       totals: { count: sales.length, revenue: totalRevenue, profit: totalProfit },
+      today: { count: todayCount, revenue: todayRevenue },
+      conditionSplit: { new: newCount, used: usedCount },
       byBranch: Array.from(byBranch.values()).sort((a, b) => b.revenue - a.revenue),
       byStaff: Array.from(byStaff.values()).sort((a, b) => b.revenue - a.revenue),
       bestSellingBrands: Array.from(byBrand.values()).sort((a, b) => b.count - a.count).slice(0, 10),
@@ -223,21 +251,48 @@ router.get(
   })
 );
 
+// Threshold shared with the storefront's LOW_STOCK badge (packages/shared/src/utils.ts).
+const LOW_STOCK_THRESHOLD = 3;
+
 router.get(
   "/inventory-stats",
   requirePermission(PERMISSIONS.SALES_ANALYTICS),
   asyncHandler(async (_req, res) => {
-    const [available, reserved, sold, hidden, valueAgg] = await Promise.all([
-      prisma.product.count({ where: { status: "AVAILABLE" } }),
-      prisma.product.count({ where: { status: "RESERVED" } }),
-      prisma.product.count({ where: { status: "SOLD" } }),
-      prisma.product.count({ where: { status: "HIDDEN" } }),
-      prisma.product.aggregate({ where: { status: { in: ["AVAILABLE", "RESERVED"] } }, _sum: { basePrice: true } }),
-    ]);
+    const [available, reserved, sold, hidden, valueAgg, unitsInStock, unitsSold, costAgg, profitAgg, allTrackedGroups, inStockGroups] =
+      await Promise.all([
+        prisma.product.count({ where: { status: "AVAILABLE" } }),
+        prisma.product.count({ where: { status: "RESERVED" } }),
+        prisma.product.count({ where: { status: "SOLD" } }),
+        prisma.product.count({ where: { status: "HIDDEN" } }),
+        prisma.product.aggregate({ where: { status: { in: ["AVAILABLE", "RESERVED"] } }, _sum: { basePrice: true } }),
+        prisma.inventoryUnit.count({ where: { status: "IN_STOCK" } }),
+        prisma.inventoryUnit.count({ where: { status: "SOLD" } }),
+        prisma.inventoryUnit.aggregate({ where: { status: "IN_STOCK" }, _sum: { purchasePrice: true } }),
+        prisma.sale.aggregate({ _sum: { profit: true } }),
+        // Every product that has ever had a unit scanned in, regardless of
+        // current status — the universe of "unit-tracked" products.
+        prisma.inventoryUnit.groupBy({ by: ["productId"] }),
+        // Same, but only counting units still IN_STOCK — a product present
+        // in allTrackedGroups but absent here has sold out completely.
+        prisma.inventoryUnit.groupBy({ by: ["productId"], where: { status: "IN_STOCK" }, _count: { _all: true } }),
+      ]);
+
+    const inStockByProduct = new Map(inStockGroups.map((g) => [g.productId, g._count._all]));
+    const lowStockProducts = inStockGroups.filter((g) => g._count._all > 0 && g._count._all <= LOW_STOCK_THRESHOLD).length;
+    const outOfStockTrackedProducts = allTrackedGroups.filter((g) => !inStockByProduct.has(g.productId)).length;
 
     res.json({
       counts: { available, reserved, sold, hidden, total: available + reserved + sold + hidden },
       availableInventoryValue: valueAgg._sum.basePrice ?? 0,
+      // Serialized (IMEI/QR-scanned) inventory specifically.
+      units: {
+        inStock: unitsInStock,
+        sold: unitsSold,
+        totalCostValue: costAgg._sum.purchasePrice ?? 0,
+        totalProfit: profitAgg._sum.profit ?? 0,
+        lowStockProducts,
+        outOfStockProducts: outOfStockTrackedProducts,
+      },
     });
   })
 );

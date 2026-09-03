@@ -43,6 +43,12 @@ enum VideoPlatform {
   INSTAGRAM
 }
 
+enum UnitStatus {
+  IN_STOCK
+  RESERVED
+  SOLD
+}
+
 enum HomepageSectionType {
   FEATURED_PRODUCTS
   NEW_ARRIVALS
@@ -122,6 +128,7 @@ model User {
   staffProfile        StaffProfile?
   createdProducts     Product[]           @relation("ProductCreatedBy")
   sales               Sale[]              @relation("SaleStaff")
+  addedInventoryUnits InventoryUnit[]     @relation("UnitAddedBy")
   socialCreatives     SocialCreative[]
   auditLogs           AuditLog[]
   refreshTokens       RefreshToken[]
@@ -287,7 +294,8 @@ model Product {
   videos      ProductVideo[]
   reviews     Review[]
   buyRequests BuyRequest[]
-  sale        Sale?
+  sales       Sale[]
+  units       InventoryUnit[]
   creatives   SocialCreative[]
 
   @@index([status])
@@ -318,9 +326,59 @@ model ProductVariant {
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   color   Color?  @relation(fields: [colorId], references: [id], onDelete: SetNull)
   sales   Sale[]
+  units   InventoryUnit[]
 
   @@index([productId])
   @@index([colorId])
+}
+
+// ---------------------------------------------------------------------------
+// Serialized inventory — IMEI/QR-tracked physical units
+// ---------------------------------------------------------------------------
+
+// One row per physical device. A Product (optionally scoped to one
+// ProductVariant, e.g. a specific color/storage combo) can have any number
+// of these — that's what lets "Samsung S23, stock 3" be three independently
+// sellable phones, each with its own IMEI/QR and its own purchase price,
+// where selling one only ever affects that one unit.
+//
+// Deliberately additive: a Product with zero InventoryUnit rows keeps
+// working exactly as before (Product.status directly controls
+// availability, one Sale per product) — this only activates for products
+// that are actually scanned in. See products/units.routes.ts and
+// inventory/routes.ts for the read/write paths, and sales/routes.ts for
+// how the dashboards fold unit counts in alongside the legacy numbers.
+model InventoryUnit {
+  id        String     @id @default(cuid())
+  productId String
+  variantId String?
+  branchId  String?
+  // New-mobile identifier: the QR/barcode/serial printed on the sealed box.
+  qrCode    String?    @unique
+  // Used-mobile identifiers, read off the *#06# screen. Dual-SIM phones
+  // report two — both are optional so a single-IMEI device still works.
+  imei1     String?    @unique
+  imei2     String?    @unique
+  // What this specific unit cost — never sent to the storefront or to
+  // sellers without SALES_ANALYTICS. Snapshotted onto Sale.costPrice at
+  // sale time so the sale record stays accurate even if this row is later
+  // edited or the unit deleted.
+  purchasePrice Decimal? @db.Decimal(10, 2)
+  status    UnitStatus @default(IN_STOCK)
+  addedById String
+  createdAt DateTime   @default(now())
+  soldAt    DateTime?
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  branch  Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  addedBy User            @relation("UnitAddedBy", fields: [addedById], references: [id], onDelete: Restrict)
+  sale    Sale?
+
+  @@index([productId])
+  @@index([variantId])
+  @@index([branchId])
+  @@index([status])
 }
 
 model ProductImage {
@@ -412,6 +470,7 @@ model Branch {
   staffProfiles StaffProfile[]
   products     Product[]
   sales        Sale[]
+  inventoryUnits InventoryUnit[]
 
   @@index([isActive])
 }
@@ -482,7 +541,16 @@ model BuyRequest {
 
 model Sale {
   id              String   @id @default(cuid())
-  productId       String   @unique
+  // No longer @unique: a Product can hold several InventoryUnit rows (e.g.
+  // "Samsung S23, stock 3"), and each unit generates its own Sale when it
+  // sells — so a product can now accumulate multiple Sale rows over time.
+  // Legacy (non-serialized) products still get at most one in practice,
+  // since sales/routes.ts still blocks recording a second sale once
+  // Product.status is SOLD.
+  productId       String
+  // Set only when this sale came through the scan-a-unit flow; null for a
+  // manually-recorded legacy sale with no serialized unit behind it.
+  unitId          String?  @unique
   variantId       String?
   branchId        String?
   staffId         String
@@ -505,11 +573,13 @@ model Sale {
   createdAt       DateTime @default(now())
 
   product Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  unit    InventoryUnit?  @relation(fields: [unitId], references: [id], onDelete: SetNull)
   variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   branch  Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
   staff   User            @relation("SaleStaff", fields: [staffId], references: [id], onDelete: Restrict)
   review  Review?
 
+  @@index([productId])
   @@index([branchId])
   @@index([staffId])
   @@index([saleDate])

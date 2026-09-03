@@ -26,6 +26,12 @@ export interface BadgeableProduct {
   isBestSeller?: boolean;
   isPtaApproved?: boolean;
   variants?: Array<{ stockQty: number }>;
+  // Count of IN_STOCK InventoryUnit rows (IMEI/QR-scanned serialized
+  // inventory), when this product has any. Takes priority over
+  // variants[].stockQty as the more precise source when present — a
+  // product with zero scanned units falls back to the legacy logic below
+  // exactly as before.
+  unitsInStockCount?: number;
 }
 
 // Single source of truth for stock/discount badge logic — the storefront
@@ -36,6 +42,11 @@ export interface BadgeableProduct {
 export function computeStockLevel(product: BadgeableProduct): StockLevel {
   if (product.status === "SOLD" || product.status === "HIDDEN") return "OUT_OF_STOCK";
   if (product.status === "RESERVED") return "RESERVED";
+  if (product.unitsInStockCount != null) {
+    if (product.unitsInStockCount <= 0) return "OUT_OF_STOCK";
+    if (product.unitsInStockCount <= LOW_STOCK_THRESHOLD) return "LOW_STOCK";
+    return "IN_STOCK";
+  }
   if (product.variants && product.variants.length > 0) {
     const total = product.variants.reduce((sum, v) => sum + (v.stockQty ?? 0), 0);
     if (total <= 0) return "OUT_OF_STOCK";

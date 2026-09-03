@@ -17,6 +17,7 @@ const images_routes_1 = __importDefault(require("./images.routes"));
 const videos_routes_1 = __importDefault(require("./videos.routes"));
 const reviews_routes_1 = __importDefault(require("./reviews.routes"));
 const importExport_routes_1 = __importDefault(require("./importExport.routes"));
+const units_routes_1 = __importDefault(require("./units.routes"));
 const router = (0, express_1.Router)();
 // GET routes below vary their response (which statuses are visible) based on
 // whether the caller is authenticated staff — populate req.user when a valid
@@ -43,7 +44,15 @@ const PUBLIC_CARD_SELECT = {
     // Just stock counts (not full variant records) — enough to compute an
     // IN STOCK / LOW STOCK / OUT OF STOCK badge without a second query.
     variants: { select: { stockQty: true } },
+    // How many scanned (IMEI/QR) units are still in stock — takes priority
+    // over variants[].stockQty in computeStockLevel() when a product has any.
+    _count: { select: { units: { where: { status: "IN_STOCK" } } } },
 };
+/** Flattens Prisma's `_count.units` into the `unitsInStockCount` shape computeStockLevel() (packages/shared) expects. */
+function withUnitStock(product) {
+    const { _count, ...rest } = product;
+    return { ...rest, unitsInStockCount: _count.units };
+}
 const listQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).default(1),
     limit: zod_1.z.coerce.number().int().min(1).max(60).default(24),
@@ -108,7 +117,7 @@ router.get("/", (0, validate_1.validateQuery)(listQuerySchema), (0, errorHandler
         }),
         prisma_1.prisma.product.count({ where }),
     ]);
-    res.json({ items, total, page: q.page, limit: q.limit, totalPages: Math.ceil(total / q.limit) });
+    res.json({ items: items.map(withUnitStock), total, page: q.page, limit: q.limit, totalPages: Math.ceil(total / q.limit) });
 }));
 // Shared shape for the "flagged" listing endpoints (featured / new arrivals /
 // trending / best sellers) — same indexed boolean-flag lookup, capped and
@@ -122,7 +131,7 @@ function flaggedProductsHandler(flag) {
             orderBy: { createdAt: "desc" },
             take: limit,
         });
-        res.json({ items });
+        res.json({ items: items.map(withUnitStock) });
     });
 }
 router.get("/featured", flaggedProductsHandler("isFeatured"));
@@ -188,12 +197,15 @@ router.get("/:slug", (0, errorHandler_1.asyncHandler)(async (req, res) => {
             images: { orderBy: { sortOrder: "asc" } },
             videos: { orderBy: { sortOrder: "asc" } },
             reviews: { where: { isApproved: true }, orderBy: { createdAt: "desc" } },
+            // Only a count — IMEI/QR/purchase price never reach the public storefront.
+            _count: { select: { units: { where: { status: "IN_STOCK" } } } },
         },
     });
     if (!product)
         throw new errorHandler_1.ApiError(404, "Product not found");
     if (product.status === "HIDDEN" && !req.user)
         throw new errorHandler_1.ApiError(404, "Product not found");
+    const unitsInStock = product._count.units;
     prisma_1.prisma.product.update({ where: { id: product.id }, data: { viewCount: { increment: 1 } } }).catch(() => { });
     const related = await prisma_1.prisma.product.findMany({
         where: {
@@ -204,7 +216,7 @@ router.get("/:slug", (0, errorHandler_1.asyncHandler)(async (req, res) => {
         select: PUBLIC_CARD_SELECT,
         take: 8,
     });
-    res.json({ product, related });
+    res.json({ product: { ...product, unitsInStockCount: unitsInStock }, related: related.map(withUnitStock) });
 }));
 const specSchema = zod_1.z.array(zod_1.z.object({ label: zod_1.z.string().min(1), value: zod_1.z.string().min(1) }));
 const productSchema = zod_1.z.object({
@@ -269,7 +281,7 @@ router.patch("/:id/status", auth_1.authenticate, (0, auth_1.requirePermission)(s
     res.json({ product });
 }));
 router.delete("/:id", auth_1.authenticate, (0, auth_1.requirePermission)(shared_1.PERMISSIONS.PRODUCTS_DELETE), (0, errorHandler_1.asyncHandler)(async (req, res) => {
-    const sale = await prisma_1.prisma.sale.findUnique({ where: { productId: req.params.id } });
+    const sale = await prisma_1.prisma.sale.findFirst({ where: { productId: req.params.id } });
     if (sale)
         throw new errorHandler_1.ApiError(400, "Cannot delete a product with sale history. Hide it instead to preserve records.");
     await prisma_1.prisma.product.delete({ where: { id: req.params.id } });
@@ -280,4 +292,5 @@ router.use("/:id/variants", variants_routes_1.default);
 router.use("/:id/images", images_routes_1.default);
 router.use("/:id/videos", videos_routes_1.default);
 router.use("/:id/reviews", reviews_routes_1.default);
+router.use("/:id/units", units_routes_1.default);
 exports.default = router;

@@ -19,6 +19,8 @@ import {
   Headphones,
   UserCircle,
   ClipboardCheck,
+  ScanLine,
+  PackageCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { Permission } from "../../shared";
@@ -33,6 +35,7 @@ export interface NavItem {
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/scan", label: "Scan & Sell", icon: ScanLine, permission: "sales.record" },
   { href: "/admin/products", label: "Products", icon: Smartphone, permission: "products.view" },
   { href: "/admin/accessories", label: "Accessories", icon: Headphones, permission: "products.view" },
   { href: "/admin/brands", label: "Brands", icon: Tags, permission: "catalog.manageBrands" },
@@ -47,6 +50,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/approvals", label: "Approvals & Requests", icon: ClipboardCheck, permission: "products.manageReviews" },
   { href: "/admin/social", label: "Social Generator", icon: Sparkles, permission: "social.generate" },
   { href: "/admin/sales", label: "Sales & Analytics", icon: BarChart3, permission: "sales.analytics" },
+  { href: "/admin/sold-inventory", label: "Sold Mobiles", icon: PackageCheck, permission: "sales.viewOwn" },
   { href: "/admin/settings", label: "Store Settings", icon: Settings, permission: "settings.manage" },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, permission: "audit.view" },
   { href: "/admin/system", label: "Go-Live Setup", icon: RotateCcw, superAdminOnly: true },
@@ -54,6 +58,7 @@ export const ADMIN_NAV: NavItem[] = [
 
 export const PORTAL_NAV: NavItem[] = [
   { href: "/portal", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/portal/scan", label: "Scan & Sell", icon: ScanLine, permission: "sales.record" },
   { href: "/portal/products", label: "Products", icon: ShoppingBag, permission: "products.view" },
   { href: "/portal/sales", label: "My Sales", icon: ReceiptText, permission: "sales.viewOwn" },
   { href: "/portal/buy-requests", label: "Buy Requests", icon: MessageSquareText, permission: "buyRequests.view" },

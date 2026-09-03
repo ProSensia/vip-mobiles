@@ -216,6 +216,13 @@ function computeStockLevel(product) {
         return "OUT_OF_STOCK";
     if (product.status === "RESERVED")
         return "RESERVED";
+    if (product.unitsInStockCount != null) {
+        if (product.unitsInStockCount <= 0)
+            return "OUT_OF_STOCK";
+        if (product.unitsInStockCount <= LOW_STOCK_THRESHOLD)
+            return "LOW_STOCK";
+        return "IN_STOCK";
+    }
     if (product.variants && product.variants.length > 0) {
         const total = product.variants.reduce((sum, v) => sum + (v.stockQty ?? 0), 0);
         if (total <= 0)
