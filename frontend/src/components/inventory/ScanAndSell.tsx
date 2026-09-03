@@ -103,7 +103,7 @@ export function ScanAndSell() {
 
   return (
     <Card>
-      <CardBody className="mx-auto max-w-md">
+      <CardBody className="mx-auto max-w-md p-3 sm:p-5">
         {stage === "scan" && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-cream">
@@ -151,9 +151,9 @@ export function ScanAndSell() {
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
             </FormField>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={reset}><RotateCcw className="h-4 w-4" /> Rescan</Button>
-              <Button className="flex-1" onClick={confirmSale} loading={confirming} disabled={!soldPrice}>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" className="w-full sm:w-auto" onClick={reset}><RotateCcw className="h-4 w-4" /> Rescan</Button>
+              <Button className="w-full sm:flex-1" onClick={confirmSale} loading={confirming} disabled={!soldPrice}>
                 Confirm Sale
               </Button>
             </div>

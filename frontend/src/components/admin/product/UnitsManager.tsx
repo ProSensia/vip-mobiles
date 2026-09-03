@@ -165,9 +165,9 @@ function AddUnitModal({
               <Lock className="h-3.5 w-3.5" /> Purchase price is only visible to roles with financial access.
             </p>
           )}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep("scan")}>Rescan</Button>
-            <Button className="flex-1" onClick={save} loading={saving} disabled={!code}>Save Unit</Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setStep("scan")}>Rescan</Button>
+            <Button className="w-full sm:flex-1" onClick={save} loading={saving} disabled={!code}>Save Unit</Button>
           </div>
         </div>
       )}
